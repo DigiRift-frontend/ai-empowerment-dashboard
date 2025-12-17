@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { mockRoadmapItems } from '@/lib/mock-data'
-import { formatDate } from '@/lib/utils'
+import { mockRoadmapItems, mockCustomer, getPendingAcceptanceCount } from '@/lib/mock-data'
+import { formatDate, formatNumber } from '@/lib/utils'
 import {
   Map,
   Calendar,
@@ -18,6 +19,10 @@ import {
   Filter,
   LayoutGrid,
   List,
+  AlertTriangle,
+  FileCheck,
+  Download,
+  Coins,
 } from 'lucide-react'
 import { RoadmapStatus } from '@/types'
 
@@ -47,9 +52,55 @@ export default function RoadmapPage() {
     niedrig: { label: 'Niedrig', color: 'bg-gray-100 text-gray-700' },
   }
 
+  const acceptanceConfig = {
+    ausstehend: { label: 'Bestätigung erforderlich', color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle },
+    akzeptiert: { label: 'Akzeptiert', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
+    abgelehnt: { label: 'Abgelehnt', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
+  }
+
   const totalProgress = Math.round(
     mockRoadmapItems.reduce((sum, item) => sum + item.progress, 0) / mockRoadmapItems.length
   )
+
+  const pendingCount = getPendingAcceptanceCount()
+
+  const exportRoadmapPDF = () => {
+    const content = `
+AI EMPOWERMENT PROGRAMM - ROADMAP ÜBERSICHT
+============================================
+
+Kunde: ${mockCustomer.companyName}
+Erstellt: ${formatDate(new Date().toISOString())}
+Gesamtfortschritt: ${totalProgress}%
+
+${'='.repeat(50)}
+
+${mockRoadmapItems.map((item) => `
+PROJEKT: ${item.title}
+${'-'.repeat(40)}
+Beschreibung: ${item.description}
+Status: ${statusConfig[item.status].label}
+Priorität: ${priorityConfig[item.priority].label}
+Fortschritt: ${item.progress}%
+${item.startDate ? `Startdatum: ${formatDate(item.startDate)}` : ''}
+${item.targetDate ? `Zieldatum: ${formatDate(item.targetDate)}` : ''}
+Geschätzte Punkte: ${item.totalEstimatedPoints || 0}
+Akzeptanzstatus: ${item.acceptanceStatus === 'akzeptiert' ? 'Akzeptiert' : 'Ausstehend'}
+
+Akzeptanzkriterien:
+${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.estimatedPoints} Pkt.)`).join('\n') || '  Keine definiert'}
+
+`).join('\n')}
+    `.trim()
+
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Roadmap_${mockCustomer.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,8 +110,27 @@ export default function RoadmapPage() {
       />
 
       <div className="p-6">
+        {/* Pending Acceptance Banner */}
+        {pendingCount > 0 && (
+          <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <div>
+                  <p className="font-medium text-yellow-800">
+                    {pendingCount} Projekt{pendingCount > 1 ? 'e' : ''} benötigt Ihre Bestätigung
+                  </p>
+                  <p className="text-sm text-yellow-700">
+                    Bitte überprüfen und akzeptieren Sie die Akzeptanzkriterien
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Summary Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
+        <div className="mb-6 grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -117,6 +187,20 @@ export default function RoadmapPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Ausstehend</p>
+                  <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+                </div>
+                <div className="rounded-lg bg-yellow-100 p-3">
+                  <FileCheck className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Controls */}
@@ -137,6 +221,10 @@ export default function RoadmapPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportRoadmapPDF}>
+              <Download className="mr-1 h-4 w-4" />
+              Roadmap exportieren
+            </Button>
             <Button
               variant={viewMode === 'kanban' ? 'default' : 'outline'}
               size="sm"
@@ -175,38 +263,60 @@ export default function RoadmapPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {items.map((item) => (
-                      <Card key={item.id} className="transition-all hover:shadow-md">
-                        <CardContent className="p-4">
-                          <div className="mb-2 flex items-start justify-between">
-                            <h4 className="font-medium text-gray-900">{item.title}</h4>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
-                              {priorityConfig[item.priority].label}
-                            </span>
-                          </div>
-                          <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                    {items.map((item) => {
+                      const acceptanceInfo = item.acceptanceStatus ? acceptanceConfig[item.acceptanceStatus] : null
 
-                          {status !== 'geplant' && (
-                            <div className="mb-3">
-                              <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-                                <span>Fortschritt</span>
-                                <span>{item.progress}%</span>
+                      return (
+                        <Link key={item.id} href={`/roadmap/${item.id}`}>
+                          <Card className="cursor-pointer transition-all hover:shadow-md hover:border-primary-300">
+                            <CardContent className="p-4">
+                              <div className="mb-2 flex items-start justify-between">
+                                <h4 className="font-medium text-gray-900">{item.title}</h4>
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
+                                  {priorityConfig[item.priority].label}
+                                </span>
                               </div>
-                              <Progress value={item.progress} size="sm" />
-                            </div>
-                          )}
+                              <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
 
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            {item.targetDate && (
-                              <div className="flex items-center gap-1">
-                                <Target className="h-3 w-3" />
-                                <span>{formatDate(item.targetDate)}</span>
+                              {/* Acceptance Status Badge */}
+                              {item.acceptanceStatus === 'ausstehend' && (
+                                <div className="mb-3 flex items-center gap-1.5 rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Bestätigung erforderlich
+                                </div>
+                              )}
+
+                              {status !== 'geplant' && (
+                                <div className="mb-3">
+                                  <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                                    <span>Fortschritt</span>
+                                    <span>{item.progress}%</span>
+                                  </div>
+                                  <Progress value={item.progress} size="sm" />
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <div className="flex items-center gap-2">
+                                  {item.targetDate && (
+                                    <div className="flex items-center gap-1">
+                                      <Target className="h-3 w-3" />
+                                      <span>{formatDate(item.targetDate)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {item.totalEstimatedPoints && (
+                                  <div className="flex items-center gap-1">
+                                    <Coins className="h-3 w-3" />
+                                    <span>{item.totalEstimatedPoints} Pkt.</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      )
+                    })}
 
                     {items.length === 0 && (
                       <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center">
@@ -230,41 +340,53 @@ export default function RoadmapPage() {
                   const StatusIcon = config.icon
 
                   return (
-                    <div key={item.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
-                      <div className={`rounded-lg p-2 ${config.color}`}>
-                        <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-gray-900">{item.title}</h4>
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
-                            {priorityConfig[item.priority].label}
-                          </span>
-                          <Badge variant={item.status === 'abgeschlossen' ? 'success' : item.status === 'in-arbeit' ? 'default' : 'secondary'}>
-                            {config.label}
-                          </Badge>
+                    <Link key={item.id} href={`/roadmap/${item.id}`}>
+                      <div className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer">
+                        <div className={`rounded-lg p-2 ${config.color}`}>
+                          <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
                         </div>
-                        <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                      </div>
 
-                      <div className="w-32">
-                        <Progress value={item.progress} size="sm" showLabel />
-                      </div>
-
-                      <div className="text-right text-sm text-gray-500">
-                        {item.targetDate && (
-                          <div className="flex items-center gap-1">
-                            <Target className="h-4 w-4" />
-                            <span>{formatDate(item.targetDate)}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900">{item.title}</h4>
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
+                              {priorityConfig[item.priority].label}
+                            </span>
+                            <Badge variant={item.status === 'abgeschlossen' ? 'success' : item.status === 'in-arbeit' ? 'default' : 'secondary'}>
+                              {config.label}
+                            </Badge>
+                            {item.acceptanceStatus === 'ausstehend' && (
+                              <Badge variant="warning">
+                                <AlertTriangle className="mr-1 h-3 w-3" />
+                                Bestätigung erforderlich
+                              </Badge>
+                            )}
                           </div>
-                        )}
-                      </div>
+                          <p className="mt-1 text-sm text-gray-600">{item.description}</p>
+                        </div>
 
-                      <Button variant="ghost" size="icon">
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <div className="w-32">
+                          <Progress value={item.progress} size="sm" showLabel />
+                        </div>
+
+                        <div className="text-right text-sm text-gray-500">
+                          {item.totalEstimatedPoints && (
+                            <div className="flex items-center gap-1 justify-end mb-1">
+                              <Coins className="h-4 w-4" />
+                              <span>{item.totalEstimatedPoints} Pkt.</span>
+                            </div>
+                          )}
+                          {item.targetDate && (
+                            <div className="flex items-center gap-1 justify-end">
+                              <Target className="h-4 w-4" />
+                              <span>{formatDate(item.targetDate)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <ArrowRight className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </Link>
                   )
                 })}
               </div>
@@ -295,21 +417,31 @@ export default function RoadmapPage() {
                     const date = item.completedDate || item.targetDate
 
                     return (
-                      <div key={item.id} className="relative flex gap-4 pl-10">
-                        <div className={`absolute left-2.5 rounded-full p-1 ${config.color}`}>
-                          <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
-                        </div>
-                        <div className="flex-1 rounded-lg border border-gray-200 bg-white p-4">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-gray-900">{item.title}</h4>
-                            <span className="text-sm text-gray-500">{date && formatDate(date)}</span>
+                      <Link key={item.id} href={`/roadmap/${item.id}`}>
+                        <div className="relative flex gap-4 pl-10 cursor-pointer group">
+                          <div className={`absolute left-2.5 rounded-full p-1 ${config.color}`}>
+                            <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
                           </div>
-                          <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                          {item.status !== 'geplant' && (
-                            <Progress value={item.progress} size="sm" className="mt-2" />
-                          )}
+                          <div className="flex-1 rounded-lg border border-gray-200 bg-white p-4 transition-all group-hover:shadow-md group-hover:border-primary-300">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-gray-900">{item.title}</h4>
+                                {item.acceptanceStatus === 'ausstehend' && (
+                                  <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Bestätigung
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-500">{date && formatDate(date)}</span>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-600">{item.description}</p>
+                            {item.status !== 'geplant' && (
+                              <Progress value={item.progress} size="sm" className="mt-2" />
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
               </div>

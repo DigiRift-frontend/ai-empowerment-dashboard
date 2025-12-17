@@ -65,9 +65,17 @@ export interface ModuleHistoryEntry {
   pointsUsed?: number
 }
 
-// Roadmap
+// Roadmap & Projekte
 export type RoadmapStatus = 'geplant' | 'in-arbeit' | 'abgeschlossen'
 export type RoadmapPriority = 'hoch' | 'mittel' | 'niedrig'
+export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
+
+export interface AcceptanceCriterion {
+  id: string
+  description: string
+  estimatedPoints: number
+  accepted?: boolean
+}
 
 export interface RoadmapItem {
   id: string
@@ -80,6 +88,12 @@ export interface RoadmapItem {
   targetDate?: string
   completedDate?: string
   useCaseId?: string
+  // Akzeptanzkriterien
+  acceptanceCriteria?: AcceptanceCriterion[]
+  acceptanceStatus?: AcceptanceStatus
+  acceptedAt?: string
+  acceptedBy?: string
+  totalEstimatedPoints?: number
 }
 
 export interface Milestone {
@@ -142,4 +156,33 @@ export interface MonthlySummary {
   wartung: number
   schulung: number
   total: number
+}
+
+// Benachrichtigungen & Nachrichten
+export type NotificationType =
+  | 'acceptance_required'  // Akzeptanzkriterien müssen bestätigt werden
+  | 'message'              // Nachricht vom Admin
+  | 'project_update'       // Projekt-Update
+  | 'milestone_reached'    // Meilenstein erreicht
+  | 'budget_warning'       // Budget-Warnung
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  message: string
+  createdAt: string
+  read: boolean
+  actionRequired: boolean
+  relatedProjectId?: string
+  relatedUrl?: string
+}
+
+export interface AdminMessage {
+  id: string
+  subject: string
+  content: string
+  createdAt: string
+  read: boolean
+  from: string
 }

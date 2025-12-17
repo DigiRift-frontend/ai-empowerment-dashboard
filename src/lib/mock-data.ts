@@ -11,6 +11,8 @@ import {
   Meeting,
   MonthlySummary,
   DashboardStats,
+  Notification,
+  AdminMessage,
 } from '@/types'
 
 export const mockCustomer: Customer = {
@@ -134,6 +136,15 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 0,
     startDate: '2025-01-15',
     targetDate: '2025-03-31',
+    acceptanceStatus: 'ausstehend',
+    totalEstimatedPoints: 85,
+    acceptanceCriteria: [
+      { id: 'ac1-1', description: 'Spracheingabe funktioniert in deutscher Sprache mit >95% Erkennungsrate', estimatedPoints: 25 },
+      { id: 'ac1-2', description: 'Sentiment-Analyse erkennt positive/negative/neutrale Stimmung', estimatedPoints: 20 },
+      { id: 'ac1-3', description: 'Integration in bestehendes Chatbot-System ohne Downtime', estimatedPoints: 15 },
+      { id: 'ac1-4', description: 'Dokumentation und Schulung für Support-Team', estimatedPoints: 10 },
+      { id: 'ac1-5', description: 'Performance-Tests bestanden (Antwortzeit <2s)', estimatedPoints: 15 },
+    ],
   },
   {
     id: 'ri2',
@@ -144,6 +155,17 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 35,
     startDate: '2024-12-01',
     targetDate: '2025-02-28',
+    acceptanceStatus: 'akzeptiert',
+    acceptedAt: '2024-11-25',
+    acceptedBy: 'Max Mustermann',
+    totalEstimatedPoints: 120,
+    acceptanceCriteria: [
+      { id: 'ac2-1', description: 'Lead-Scoring-Algorithmus mit >80% Genauigkeit', estimatedPoints: 35, accepted: true },
+      { id: 'ac2-2', description: 'Integration mit CRM-System (Salesforce)', estimatedPoints: 25, accepted: true },
+      { id: 'ac2-3', description: 'Dashboard mit Echtzeit-Prognosen', estimatedPoints: 30, accepted: true },
+      { id: 'ac2-4', description: 'Wöchentliche automatische Reports per E-Mail', estimatedPoints: 15, accepted: true },
+      { id: 'ac2-5', description: 'Schulung für Vertriebsteam (2 Sessions)', estimatedPoints: 15, accepted: true },
+    ],
   },
   {
     id: 'ri3',
@@ -154,6 +176,16 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 80,
     startDate: '2024-11-01',
     targetDate: '2024-12-31',
+    acceptanceStatus: 'akzeptiert',
+    acceptedAt: '2024-10-20',
+    acceptedBy: 'Max Mustermann',
+    totalEstimatedPoints: 65,
+    acceptanceCriteria: [
+      { id: 'ac3-1', description: '5 Kategorien: Dringend, Anfrage, Beschwerde, Info, Spam', estimatedPoints: 20, accepted: true },
+      { id: 'ac3-2', description: 'Klassifikationsgenauigkeit >90%', estimatedPoints: 25, accepted: true },
+      { id: 'ac3-3', description: 'Automatische Weiterleitung an zuständige Abteilung', estimatedPoints: 15, accepted: true },
+      { id: 'ac3-4', description: 'Manuelle Korrekturmöglichkeit mit Lernfunktion', estimatedPoints: 5, accepted: true },
+    ],
   },
   {
     id: 'ri4',
@@ -165,6 +197,16 @@ export const mockRoadmapItems: RoadmapItem[] = [
     startDate: '2024-09-01',
     targetDate: '2024-11-30',
     completedDate: '2024-11-28',
+    acceptanceStatus: 'akzeptiert',
+    acceptedAt: '2024-08-25',
+    acceptedBy: 'Max Mustermann',
+    totalEstimatedPoints: 95,
+    acceptanceCriteria: [
+      { id: 'ac4-1', description: 'OCR-Erkennung für gescannte Dokumente', estimatedPoints: 30, accepted: true },
+      { id: 'ac4-2', description: 'Automatische Kategorisierung in 10 Dokumenttypen', estimatedPoints: 25, accepted: true },
+      { id: 'ac4-3', description: 'Extraktion von Schlüsseldaten (Datum, Betrag, etc.)', estimatedPoints: 25, accepted: true },
+      { id: 'ac4-4', description: 'Integration mit DMS-System', estimatedPoints: 15, accepted: true },
+    ],
   },
   {
     id: 'ri5',
@@ -176,6 +218,16 @@ export const mockRoadmapItems: RoadmapItem[] = [
     startDate: '2024-07-01',
     targetDate: '2024-09-30',
     completedDate: '2024-09-15',
+    acceptanceStatus: 'akzeptiert',
+    acceptedAt: '2024-06-20',
+    acceptedBy: 'Max Mustermann',
+    totalEstimatedPoints: 80,
+    acceptanceCriteria: [
+      { id: 'ac5-1', description: 'Beantwortung von 100+ FAQ-Fragen', estimatedPoints: 25, accepted: true },
+      { id: 'ac5-2', description: 'Eskalation an Mitarbeiter bei komplexen Anfragen', estimatedPoints: 20, accepted: true },
+      { id: 'ac5-3', description: '24/7 Verfügbarkeit', estimatedPoints: 15, accepted: true },
+      { id: 'ac5-4', description: 'Widget für Website-Integration', estimatedPoints: 20, accepted: true },
+    ],
   },
   {
     id: 'ri6',
@@ -186,6 +238,14 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 0,
     startDate: '2025-04-01',
     targetDate: '2025-06-30',
+    acceptanceStatus: 'ausstehend',
+    totalEstimatedPoints: 110,
+    acceptanceCriteria: [
+      { id: 'ac6-1', description: 'Automatisierung von 5 identifizierten Prozessen', estimatedPoints: 40 },
+      { id: 'ac6-2', description: 'Zeitersparnis von min. 20h/Woche', estimatedPoints: 25 },
+      { id: 'ac6-3', description: 'Fehlerrate <1% bei automatisierten Prozessen', estimatedPoints: 25 },
+      { id: 'ac6-4', description: 'Monitoring-Dashboard für RPA-Bots', estimatedPoints: 20 },
+    ],
   },
 ]
 
@@ -272,4 +332,142 @@ export function getExternalCostsByType() {
     telefonie: 45.00,
     sonstige: 0,
   }
+}
+
+// Benachrichtigungen
+export const mockNotifications: Notification[] = [
+  {
+    id: 'n1',
+    type: 'acceptance_required',
+    title: 'Akzeptanzkriterien bestätigen',
+    message: 'Bitte bestätigen Sie die Akzeptanzkriterien für das Projekt "Kundenservice Chatbot 2.0", damit wir mit der Entwicklung beginnen können.',
+    createdAt: '2024-12-16T10:30:00',
+    read: false,
+    actionRequired: true,
+    relatedProjectId: 'ri1',
+    relatedUrl: '/roadmap/ri1',
+  },
+  {
+    id: 'n2',
+    type: 'acceptance_required',
+    title: 'Akzeptanzkriterien bestätigen',
+    message: 'Das Projekt "Prozessautomatisierung RPA" wartet auf Ihre Freigabe der Akzeptanzkriterien.',
+    createdAt: '2024-12-15T14:00:00',
+    read: false,
+    actionRequired: true,
+    relatedProjectId: 'ri6',
+    relatedUrl: '/roadmap/ri6',
+  },
+  {
+    id: 'n3',
+    type: 'message',
+    title: 'Neue Nachricht vom Team',
+    message: 'Wir haben eine wichtige Mitteilung bezüglich Ihres Projekts.',
+    createdAt: '2024-12-14T09:15:00',
+    read: false,
+    actionRequired: false,
+    relatedUrl: '/messages',
+  },
+  {
+    id: 'n4',
+    type: 'milestone_reached',
+    title: 'Meilenstein erreicht',
+    message: 'Das E-Mail Klassifikation System hat 80% Fortschritt erreicht!',
+    createdAt: '2024-12-12T16:45:00',
+    read: true,
+    actionRequired: false,
+    relatedProjectId: 'ri3',
+  },
+  {
+    id: 'n5',
+    type: 'project_update',
+    title: 'Projekt-Update verfügbar',
+    message: 'Neuer Statusbericht für "Vertriebsprognose System" ist verfügbar.',
+    createdAt: '2024-12-10T11:00:00',
+    read: true,
+    actionRequired: false,
+    relatedProjectId: 'ri2',
+  },
+]
+
+// Admin-Nachrichten
+export const mockAdminMessages: AdminMessage[] = [
+  {
+    id: 'msg1',
+    subject: 'Wichtig: Abstimmung zu Chatbot 2.0 Features',
+    content: `Sehr geehrter Herr Mustermann,
+
+im Rahmen der Planung für das Chatbot 2.0 Projekt möchten wir gerne einige Details mit Ihnen abstimmen:
+
+1. **Spracheingabe**: Soll die Spracheingabe auch auf mobilen Geräten verfügbar sein?
+2. **Sentiment-Analyse**: Möchten Sie automatische Eskalation bei negativer Stimmung?
+3. **Schulung**: Bevorzugen Sie eine Vor-Ort-Schulung oder Remote?
+
+Bitte geben Sie uns Ihr Feedback bis zum 20.12., damit wir die finalen Akzeptanzkriterien erstellen können.
+
+Mit freundlichen Grüßen,
+Ihr AI Empowerment Team`,
+    createdAt: '2024-12-14T09:15:00',
+    read: false,
+    from: 'Sarah Meyer - Projektleiterin',
+  },
+  {
+    id: 'msg2',
+    subject: 'Monatlicher Status-Report November 2024',
+    content: `Sehr geehrter Herr Mustermann,
+
+anbei Ihr monatlicher Status-Report für November 2024:
+
+**Highlights:**
+- E-Mail Klassifikation: 80% Fortschritt erreicht
+- Dokumenten-Analyse: Erfolgreich abgeschlossen am 28.11.
+- 158 Punkte verbraucht (von 200 verfügbar)
+
+**Nächste Schritte:**
+- Go-Live E-Mail Klassifikation: 31.12.2024
+- Start Chatbot 2.0: 15.01.2025
+
+Bei Fragen stehen wir Ihnen gerne zur Verfügung.
+
+Mit freundlichen Grüßen,
+Ihr AI Empowerment Team`,
+    createdAt: '2024-12-01T08:00:00',
+    read: true,
+    from: 'AI Empowerment Team',
+  },
+  {
+    id: 'msg3',
+    subject: 'Einladung: Q1 2025 Planungsmeeting',
+    content: `Sehr geehrter Herr Mustermann,
+
+wir möchten Sie herzlich zum Q1 2025 Planungsmeeting einladen:
+
+**Datum:** 10. Januar 2025
+**Uhrzeit:** 10:00 - 12:00 Uhr
+**Format:** Remote (Teams-Link folgt)
+
+**Agenda:**
+1. Rückblick Q4 2024
+2. Roadmap-Review und Priorisierung
+3. Budget-Planung Q1 2025
+4. Neue Use-Case-Ideen
+
+Bitte bestätigen Sie Ihre Teilnahme.
+
+Mit freundlichen Grüßen,
+Sarah Meyer`,
+    createdAt: '2024-11-25T14:30:00',
+    read: true,
+    from: 'Sarah Meyer - Projektleiterin',
+  },
+]
+
+// Hilfsfunktion für ungelesene Benachrichtigungen
+export function getUnreadNotificationsCount(): number {
+  return mockNotifications.filter((n) => !n.read).length
+}
+
+// Hilfsfunktion für ausstehende Akzeptanzen
+export function getPendingAcceptanceCount(): number {
+  return mockRoadmapItems.filter((item) => item.acceptanceStatus === 'ausstehend').length
 }

@@ -1,7 +1,8 @@
 'use client'
 
-import { Bell, User, ChevronDown, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { User, ChevronDown, Search } from 'lucide-react'
+import { NotificationsDropdown } from '@/components/dashboard/notifications-dropdown'
+import { mockNotifications } from '@/lib/mock-data'
 
 interface HeaderProps {
   title: string
@@ -28,10 +29,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5 text-gray-500" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-        </Button>
+        <NotificationsDropdown notifications={mockNotifications} />
 
         {/* User Menu */}
         <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
