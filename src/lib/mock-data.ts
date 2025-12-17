@@ -20,14 +20,30 @@ export const mockCustomer: Customer = {
   name: 'Max Mustermann',
   companyName: 'TechCorp GmbH',
   email: 'max@techcorp.de',
+  customerCode: '4721',
   membership: {
     id: 'm1',
     tier: 'M',
     monthlyPoints: 200,
     usedPoints: 142,
     remainingPoints: 58,
+    monthlyPrice: 4900,
+    contractStart: '2024-07-01',
     periodStart: '2024-12-01',
     periodEnd: '2024-12-31',
+    carriedOverPoints: {
+      month1: 15, // Verfallen Ende nächsten Monat
+      month2: 28,
+      month3: 0,
+    },
+  },
+  advisor: {
+    id: 'adv1',
+    name: 'Kamil Gawlik',
+    role: 'Customer Success Manager',
+    email: 'kamil@digirift.com',
+    phone: '+49 89 123 456 78',
+    calendlyUrl: 'https://calendly.com/kamil-gawlik',
   },
 }
 
@@ -38,6 +54,8 @@ export const mockModules: Module[] = [
     description: 'KI-gestützter Chatbot für den Kundenservice mit FAQ-Integration',
     status: 'live',
     monthlyMaintenancePoints: 8,
+    assigneeId: 'tm2',
+    softwareUrl: 'https://chatbot.techcorp.de',
     createdAt: '2024-08-15',
     updatedAt: '2024-12-10',
   },
@@ -47,6 +65,8 @@ export const mockModules: Module[] = [
     description: 'Automatische Analyse und Kategorisierung eingehender Dokumente',
     status: 'live',
     monthlyMaintenancePoints: 12,
+    assigneeId: 'tm5',
+    softwareUrl: 'https://docs.techcorp.de/analyse',
     createdAt: '2024-09-20',
     updatedAt: '2024-12-05',
   },
@@ -56,6 +76,7 @@ export const mockModules: Module[] = [
     description: 'Automatische Sortierung und Priorisierung von E-Mails',
     status: 'optimierung',
     monthlyMaintenancePoints: 6,
+    assigneeId: 'tm4',
     createdAt: '2024-11-01',
     updatedAt: '2024-12-12',
   },
@@ -65,6 +86,7 @@ export const mockModules: Module[] = [
     description: 'KI-basierte Vorhersage von Verkaufschancen',
     status: 'setup',
     monthlyMaintenancePoints: 0,
+    assigneeId: 'tm3',
     createdAt: '2024-12-01',
     updatedAt: '2024-12-15',
   },
@@ -136,14 +158,14 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 0,
     startDate: '2025-01-15',
     targetDate: '2025-03-31',
+    assigneeId: 'tm2',
     acceptanceStatus: 'ausstehend',
-    totalEstimatedPoints: 85,
     acceptanceCriteria: [
-      { id: 'ac1-1', description: 'Spracheingabe funktioniert in deutscher Sprache mit >95% Erkennungsrate', estimatedPoints: 25 },
-      { id: 'ac1-2', description: 'Sentiment-Analyse erkennt positive/negative/neutrale Stimmung', estimatedPoints: 20 },
-      { id: 'ac1-3', description: 'Integration in bestehendes Chatbot-System ohne Downtime', estimatedPoints: 15 },
-      { id: 'ac1-4', description: 'Dokumentation und Schulung für Support-Team', estimatedPoints: 10 },
-      { id: 'ac1-5', description: 'Performance-Tests bestanden (Antwortzeit <2s)', estimatedPoints: 15 },
+      { id: 'ac1-1', description: 'Spracheingabe funktioniert in deutscher Sprache mit >95% Erkennungsrate' },
+      { id: 'ac1-2', description: 'Sentiment-Analyse erkennt positive/negative/neutrale Stimmung' },
+      { id: 'ac1-3', description: 'Integration in bestehendes Chatbot-System ohne Downtime' },
+      { id: 'ac1-4', description: 'Dokumentation und Schulung für Support-Team' },
+      { id: 'ac1-5', description: 'Performance-Tests bestanden (Antwortzeit <2s)' },
     ],
   },
   {
@@ -155,36 +177,39 @@ export const mockRoadmapItems: RoadmapItem[] = [
     progress: 35,
     startDate: '2024-12-01',
     targetDate: '2025-02-28',
+    assigneeId: 'tm3',
     acceptanceStatus: 'akzeptiert',
     acceptedAt: '2024-11-25',
     acceptedBy: 'Max Mustermann',
-    totalEstimatedPoints: 120,
     acceptanceCriteria: [
-      { id: 'ac2-1', description: 'Lead-Scoring-Algorithmus mit >80% Genauigkeit', estimatedPoints: 35, accepted: true },
-      { id: 'ac2-2', description: 'Integration mit CRM-System (Salesforce)', estimatedPoints: 25, accepted: true },
-      { id: 'ac2-3', description: 'Dashboard mit Echtzeit-Prognosen', estimatedPoints: 30, accepted: true },
-      { id: 'ac2-4', description: 'Wöchentliche automatische Reports per E-Mail', estimatedPoints: 15, accepted: true },
-      { id: 'ac2-5', description: 'Schulung für Vertriebsteam (2 Sessions)', estimatedPoints: 15, accepted: true },
+      { id: 'ac2-1', description: 'Lead-Scoring-Algorithmus mit >80% Genauigkeit', accepted: true },
+      { id: 'ac2-2', description: 'Integration mit CRM-System (Salesforce)', accepted: true },
+      { id: 'ac2-3', description: 'Dashboard mit Echtzeit-Prognosen', accepted: true },
+      { id: 'ac2-4', description: 'Wöchentliche automatische Reports per E-Mail', accepted: true },
+      { id: 'ac2-5', description: 'Schulung für Vertriebsteam (2 Sessions)', accepted: true },
     ],
   },
   {
     id: 'ri3',
     title: 'E-Mail Klassifikation',
     description: 'Automatische Sortierung und Priorisierung von E-Mails',
-    status: 'in-arbeit',
+    status: 'im-test',
     priority: 'mittel',
-    progress: 80,
+    progress: 90,
     startDate: '2024-11-01',
     targetDate: '2024-12-31',
+    assigneeId: 'tm4',
     acceptanceStatus: 'akzeptiert',
     acceptedAt: '2024-10-20',
     acceptedBy: 'Max Mustermann',
-    totalEstimatedPoints: 65,
     acceptanceCriteria: [
-      { id: 'ac3-1', description: '5 Kategorien: Dringend, Anfrage, Beschwerde, Info, Spam', estimatedPoints: 20, accepted: true },
-      { id: 'ac3-2', description: 'Klassifikationsgenauigkeit >90%', estimatedPoints: 25, accepted: true },
-      { id: 'ac3-3', description: 'Automatische Weiterleitung an zuständige Abteilung', estimatedPoints: 15, accepted: true },
-      { id: 'ac3-4', description: 'Manuelle Korrekturmöglichkeit mit Lernfunktion', estimatedPoints: 5, accepted: true },
+      { id: 'ac3-1', description: '5 Kategorien: Dringend, Anfrage, Beschwerde, Info, Spam', accepted: true },
+      { id: 'ac3-2', description: 'Klassifikationsgenauigkeit >90%', accepted: true },
+      { id: 'ac3-3', description: 'Automatische Weiterleitung an zuständige Abteilung', accepted: true },
+      { id: 'ac3-4', description: 'Manuelle Korrekturmöglichkeit mit Lernfunktion', accepted: true },
+    ],
+    testFeedback: [
+      { id: 'tf1', date: '2024-12-14', feedback: 'Spam-Erkennung funktioniert gut, aber einige Newsletter werden fälschlicherweise als Spam markiert.', resolved: true },
     ],
   },
   {
@@ -197,15 +222,15 @@ export const mockRoadmapItems: RoadmapItem[] = [
     startDate: '2024-09-01',
     targetDate: '2024-11-30',
     completedDate: '2024-11-28',
+    assigneeId: 'tm5',
     acceptanceStatus: 'akzeptiert',
     acceptedAt: '2024-08-25',
     acceptedBy: 'Max Mustermann',
-    totalEstimatedPoints: 95,
     acceptanceCriteria: [
-      { id: 'ac4-1', description: 'OCR-Erkennung für gescannte Dokumente', estimatedPoints: 30, accepted: true },
-      { id: 'ac4-2', description: 'Automatische Kategorisierung in 10 Dokumenttypen', estimatedPoints: 25, accepted: true },
-      { id: 'ac4-3', description: 'Extraktion von Schlüsseldaten (Datum, Betrag, etc.)', estimatedPoints: 25, accepted: true },
-      { id: 'ac4-4', description: 'Integration mit DMS-System', estimatedPoints: 15, accepted: true },
+      { id: 'ac4-1', description: 'OCR-Erkennung für gescannte Dokumente', accepted: true },
+      { id: 'ac4-2', description: 'Automatische Kategorisierung in 10 Dokumenttypen', accepted: true },
+      { id: 'ac4-3', description: 'Extraktion von Schlüsseldaten (Datum, Betrag, etc.)', accepted: true },
+      { id: 'ac4-4', description: 'Integration mit DMS-System', accepted: true },
     ],
   },
   {
@@ -218,15 +243,15 @@ export const mockRoadmapItems: RoadmapItem[] = [
     startDate: '2024-07-01',
     targetDate: '2024-09-30',
     completedDate: '2024-09-15',
+    assigneeId: 'tm2',
     acceptanceStatus: 'akzeptiert',
     acceptedAt: '2024-06-20',
     acceptedBy: 'Max Mustermann',
-    totalEstimatedPoints: 80,
     acceptanceCriteria: [
-      { id: 'ac5-1', description: 'Beantwortung von 100+ FAQ-Fragen', estimatedPoints: 25, accepted: true },
-      { id: 'ac5-2', description: 'Eskalation an Mitarbeiter bei komplexen Anfragen', estimatedPoints: 20, accepted: true },
-      { id: 'ac5-3', description: '24/7 Verfügbarkeit', estimatedPoints: 15, accepted: true },
-      { id: 'ac5-4', description: 'Widget für Website-Integration', estimatedPoints: 20, accepted: true },
+      { id: 'ac5-1', description: 'Beantwortung von 100+ FAQ-Fragen', accepted: true },
+      { id: 'ac5-2', description: 'Eskalation an Mitarbeiter bei komplexen Anfragen', accepted: true },
+      { id: 'ac5-3', description: '24/7 Verfügbarkeit', accepted: true },
+      { id: 'ac5-4', description: 'Widget für Website-Integration', accepted: true },
     ],
   },
   {
@@ -239,12 +264,11 @@ export const mockRoadmapItems: RoadmapItem[] = [
     startDate: '2025-04-01',
     targetDate: '2025-06-30',
     acceptanceStatus: 'ausstehend',
-    totalEstimatedPoints: 110,
     acceptanceCriteria: [
-      { id: 'ac6-1', description: 'Automatisierung von 5 identifizierten Prozessen', estimatedPoints: 40 },
-      { id: 'ac6-2', description: 'Zeitersparnis von min. 20h/Woche', estimatedPoints: 25 },
-      { id: 'ac6-3', description: 'Fehlerrate <1% bei automatisierten Prozessen', estimatedPoints: 25 },
-      { id: 'ac6-4', description: 'Monitoring-Dashboard für RPA-Bots', estimatedPoints: 20 },
+      { id: 'ac6-1', description: 'Automatisierung von 5 identifizierten Prozessen' },
+      { id: 'ac6-2', description: 'Zeitersparnis von min. 20h/Woche' },
+      { id: 'ac6-3', description: 'Fehlerrate <1% bei automatisierten Prozessen' },
+      { id: 'ac6-4', description: 'Monitoring-Dashboard für RPA-Bots' },
     ],
   },
 ]
@@ -336,6 +360,17 @@ export function getExternalCostsByType() {
 
 // Benachrichtigungen
 export const mockNotifications: Notification[] = [
+  {
+    id: 'n0',
+    type: 'test_required',
+    title: 'Test erforderlich: E-Mail Klassifikation',
+    message: 'Das Projekt "E-Mail Klassifikation" ist bereit zum Testen. Bitte testen Sie die Funktionalität und geben Sie Feedback.',
+    createdAt: '2024-12-17T08:00:00',
+    read: false,
+    actionRequired: true,
+    relatedProjectId: 'ri3',
+    relatedUrl: '/roadmap/ri3',
+  },
   {
     id: 'n1',
     type: 'acceptance_required',
@@ -470,4 +505,24 @@ export function getUnreadNotificationsCount(): number {
 // Hilfsfunktion für ausstehende Akzeptanzen
 export function getPendingAcceptanceCount(): number {
   return mockRoadmapItems.filter((item) => item.acceptanceStatus === 'ausstehend').length
+}
+
+// Hilfsfunktion für Team-Mitglied nach ID
+export function getTeamMemberById(id: string): typeof mockTeamMembers[0] | undefined {
+  return mockTeamMembers.find((member) => member.id === id)
+}
+
+// Hilfsfunktion für Projekte eines Team-Mitglieds
+export function getProjectsByAssignee(assigneeId: string): typeof mockRoadmapItems {
+  return mockRoadmapItems.filter((item) => item.assigneeId === assigneeId)
+}
+
+// Hilfsfunktion für Projekte die auf Akzeptanz warten
+export function getPendingAcceptanceItems(): typeof mockRoadmapItems {
+  return mockRoadmapItems.filter((item) => item.acceptanceStatus === 'ausstehend')
+}
+
+// Hilfsfunktion für Projekte die getestet werden müssen
+export function getTestRequiredItems(): typeof mockRoadmapItems {
+  return mockRoadmapItems.filter((item) => item.status === 'im-test')
 }

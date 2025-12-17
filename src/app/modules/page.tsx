@@ -5,9 +5,8 @@ import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { mockModules, mockModuleHistory } from '@/lib/mock-data'
-import { formatDate, formatNumber } from '@/lib/utils'
+import { mockModules, mockModuleHistory, mockTeamMembers, getTeamMemberById } from '@/lib/mock-data'
+import { formatDate } from '@/lib/utils'
 import {
   Cpu,
   Settings,
@@ -15,19 +14,24 @@ import {
   Wrench,
   Filter,
   Clock,
-  ChevronRight,
   Calendar,
-  TrendingUp,
+  User,
+  ChevronDown,
+  Check,
+  UserPlus,
+  ExternalLink,
 } from 'lucide-react'
 import { Module, ModuleHistoryEntry, ModuleStatus } from '@/types'
 
 export default function ModulesPage() {
   const [filter, setFilter] = useState<ModuleStatus | 'all'>('all')
   const [selectedModule, setSelectedModule] = useState<Module | null>(null)
+  const [editingAssignee, setEditingAssignee] = useState<string | null>(null)
+  const [modules, setModules] = useState(mockModules)
 
   const filteredModules = filter === 'all'
-    ? mockModules
-    : mockModules.filter((m) => m.status === filter)
+    ? modules
+    : modules.filter((m) => m.status === filter)
 
   const statusConfig = {
     setup: { label: 'Setup', variant: 'warning' as const, icon: Settings, color: 'bg-yellow-500' },
@@ -35,12 +39,22 @@ export default function ModulesPage() {
     optimierung: { label: 'Optimierung', variant: 'default' as const, icon: Wrench, color: 'bg-blue-500' },
   }
 
-  const totalMaintenancePoints = mockModules
+  const totalMaintenancePoints = modules
     .filter((m) => m.status === 'live' || m.status === 'optimierung')
     .reduce((sum, m) => sum + m.monthlyMaintenancePoints, 0)
 
   const getModuleHistory = (moduleId: string): ModuleHistoryEntry[] => {
     return mockModuleHistory.filter((h) => h.moduleId === moduleId)
+  }
+
+  const handleAssigneeChange = (moduleId: string, assigneeId: string | undefined) => {
+    setModules(modules.map(m =>
+      m.id === moduleId ? { ...m, assigneeId } : m
+    ))
+    if (selectedModule?.id === moduleId) {
+      setSelectedModule({ ...selectedModule, assigneeId })
+    }
+    setEditingAssignee(null)
   }
 
   return (
@@ -58,7 +72,7 @@ export default function ModulesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Gesamt Module</p>
-                  <p className="text-2xl font-bold">{mockModules.length}</p>
+                  <p className="text-2xl font-bold">{modules.length}</p>
                 </div>
                 <div className="rounded-lg bg-primary-100 p-3">
                   <Cpu className="h-6 w-6 text-primary-600" />
@@ -73,7 +87,7 @@ export default function ModulesPage() {
                 <div>
                   <p className="text-sm text-gray-500">Live</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {mockModules.filter((m) => m.status === 'live').length}
+                    {modules.filter((m) => m.status === 'live').length}
                   </p>
                 </div>
                 <div className="rounded-lg bg-green-100 p-3">
@@ -89,7 +103,7 @@ export default function ModulesPage() {
                 <div>
                   <p className="text-sm text-gray-500">In Optimierung</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {mockModules.filter((m) => m.status === 'optimierung').length}
+                    {modules.filter((m) => m.status === 'optimierung').length}
                   </p>
                 </div>
                 <div className="rounded-lg bg-blue-100 p-3">
@@ -139,6 +153,7 @@ export default function ModulesPage() {
               const config = statusConfig[module.status]
               const StatusIcon = config.icon
               const history = getModuleHistory(module.id)
+              const assignee = module.assigneeId ? getTeamMemberById(module.assigneeId) : null
 
               return (
                 <Card
@@ -164,7 +179,27 @@ export default function ModulesPage() {
                           </div>
                           <p className="mt-1 text-sm text-gray-600">{module.description}</p>
 
-                          <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+                          {/* Assignee Display */}
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
+                              <User className="h-3 w-3" />
+                              <span>{assignee ? assignee.name : 'Nicht zugewiesen'}</span>
+                            </div>
+                            {module.softwareUrl && (
+                              <a
+                                href={module.softwareUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-200"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>Software öffnen</span>
+                              </a>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
                               <span>Erstellt: {formatDate(module.createdAt)}</span>
@@ -229,7 +264,99 @@ export default function ModulesPage() {
                         <p className="text-sm text-gray-500">Monatliche Wartung</p>
                         <p className="font-medium">{selectedModule.monthlyMaintenancePoints} Punkte</p>
                       </div>
+                      {selectedModule.softwareUrl && (
+                        <div>
+                          <p className="text-sm text-gray-500">Software</p>
+                          <a
+                            href={selectedModule.softwareUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Software öffnen
+                          </a>
+                        </div>
+                      )}
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Responsible Person Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-gray-400" />
+                      Verantwortlicher
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative">
+                      <button
+                        onClick={() => setEditingAssignee(editingAssignee === selectedModule.id ? null : selectedModule.id)}
+                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100">
+                            <User className="h-4 w-4 text-primary-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {selectedModule.assigneeId
+                                ? getTeamMemberById(selectedModule.assigneeId)?.name
+                                : 'Nicht zugewiesen'}
+                            </p>
+                            {selectedModule.assigneeId && (
+                              <p className="text-xs text-gray-500">
+                                {getTeamMemberById(selectedModule.assigneeId)?.role}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${editingAssignee === selectedModule.id ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Dropdown */}
+                      {editingAssignee === selectedModule.id && (
+                        <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg">
+                          <div className="max-h-64 overflow-y-auto p-1">
+                            <button
+                              onClick={() => handleAssigneeChange(selectedModule.id, undefined)}
+                              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
+                                !selectedModule.assigneeId ? 'bg-primary-50' : ''
+                              }`}
+                            >
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
+                                <User className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <span className="flex-1 text-gray-600">Nicht zugewiesen</span>
+                              {!selectedModule.assigneeId && <Check className="h-4 w-4 text-primary-600" />}
+                            </button>
+                            {mockTeamMembers.map((member) => (
+                              <button
+                                key={member.id}
+                                onClick={() => handleAssigneeChange(selectedModule.id, member.id)}
+                                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
+                                  selectedModule.assigneeId === member.id ? 'bg-primary-50' : ''
+                                }`}
+                              >
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100">
+                                  <User className="h-4 w-4 text-primary-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">{member.name}</p>
+                                  <p className="text-xs text-gray-500">{member.role} • {member.department}</p>
+                                </div>
+                                {selectedModule.assigneeId === member.id && <Check className="h-4 w-4 text-primary-600" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-3 text-xs text-gray-400">
+                      Klicken Sie um den Verantwortlichen zu ändern
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -278,7 +405,7 @@ export default function ModulesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {mockModules
+                  {modules
                     .filter((m) => m.monthlyMaintenancePoints > 0)
                     .map((module) => (
                       <div key={module.id} className="flex items-center justify-between">

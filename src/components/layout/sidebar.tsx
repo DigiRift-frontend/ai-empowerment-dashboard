@@ -1,27 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { mockCustomer } from '@/lib/mock-data'
 import {
   LayoutDashboard,
-  Coins,
   Cpu,
-  Receipt,
   Map,
   GraduationCap,
+  Users,
   Settings,
   HelpCircle,
-  Sparkles,
+  Phone,
+  Mail,
+  Copy,
+  Check,
+  Calendar,
 } from 'lucide-react'
 
 const navigation = [
-  { name: 'Übersicht', href: '/', icon: LayoutDashboard },
-  { name: 'Punktebudget', href: '/budget', icon: Coins },
-  { name: 'Module', href: '/modules', icon: Cpu },
-  { name: 'Kosten', href: '/costs', icon: Receipt },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Roadmap', href: '/roadmap', icon: Map },
-  { name: 'Enablement', href: '/enablement', icon: GraduationCap },
+  { name: 'Module', href: '/modules', icon: Cpu },
+  { name: 'Schulungen', href: '/schulungen', icon: GraduationCap },
+  { name: 'Team', href: '/team', icon: Users },
 ]
 
 const secondaryNavigation = [
@@ -31,25 +36,39 @@ const secondaryNavigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const advisor = mockCustomer.advisor
+  const customerCode = mockCustomer.customerCode
+  const [copiedCode, setCopiedCode] = useState(false)
+  const [copiedEmail, setCopiedEmail] = useState(false)
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(customerCode)
+    setCopiedCode(true)
+    setTimeout(() => setCopiedCode(false), 2000)
+  }
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText(advisor.email)
+    setCopiedEmail(true)
+    setTimeout(() => setCopiedEmail(false), 2000)
+  }
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
+    <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-gray-50">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <span className="text-lg font-bold text-gray-900">AI Empowerment</span>
-          <p className="text-xs text-gray-500">Dashboard</p>
+      <div className="flex h-16 items-center justify-center bg-white border-b border-gray-200 px-4">
+        <div className="relative h-12 w-32">
+          <Image
+            src="/blue_cropped.png"
+            alt="digirift Logo"
+            fill
+            className="object-contain"
+          />
         </div>
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Hauptmenü
-        </p>
+      <nav className="flex-1 px-3 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -57,10 +76,10 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mb-1',
                 isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm'
               )}
             >
               <item.icon
@@ -75,39 +94,123 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Secondary Navigation */}
-      <div className="border-t border-gray-200 px-3 py-4">
-        {secondaryNavigation.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              )}
+      {/* Advisor Card */}
+      <div className="px-3 pb-3">
+        <div className="rounded-2xl bg-white shadow-lg border border-gray-200 overflow-hidden">
+          {/* Header with gradient */}
+          <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-3">
+            <p className="text-xs font-medium text-primary-100">Ihr Ansprechpartner</p>
+          </div>
+
+          {/* Advisor Info */}
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="relative h-14 w-14 overflow-hidden rounded-full ring-4 ring-gray-100">
+                <Image
+                  src="/Profilbild_min.png"
+                  alt={advisor.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900">{advisor.name}</p>
+                <p className="text-xs text-gray-500">{advisor.role}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Options */}
+          <div className="px-4 pb-3 space-y-1">
+            <a
+              href={`tel:${advisor.phone}`}
+              className="flex items-center gap-2.5 py-1.5 text-sm hover:text-primary-600 transition-colors"
             >
-              <item.icon
-                className={cn(
-                  'h-5 w-5 shrink-0',
-                  isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+              <Phone className="h-4 w-4 text-primary-600" />
+              <span className="text-gray-700">{advisor.phone}</span>
+            </a>
+            <div className="flex items-center gap-1.5">
+              <a
+                href={`mailto:${advisor.email}`}
+                className="flex items-center gap-2.5 py-1.5 text-sm hover:text-primary-600 transition-colors"
+              >
+                <Mail className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-600">{advisor.email}</span>
+              </a>
+              <button
+                onClick={handleCopyEmail}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                title="E-Mail kopieren"
+              >
+                {copiedEmail ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
                 )}
-              />
-              {item.name}
+              </button>
+            </div>
+          </div>
+
+          {/* Schedule Button */}
+          <div className="px-4 pb-4">
+            <Link
+              href="#"
+              className="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors w-full"
+            >
+              <Calendar className="h-4 w-4" />
+              Termin vereinbaren
             </Link>
-          )
-        })}
+          </div>
+
+          {/* Customer PIN */}
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Telefon-PIN</p>
+                <p className="font-mono text-xl font-bold tracking-[0.2em] text-gray-900">
+                  {customerCode}
+                </p>
+              </div>
+              <button
+                onClick={handleCopyCode}
+                className="rounded-lg bg-white p-2 text-gray-400 border border-gray-200 hover:text-gray-600 hover:border-gray-300 transition-colors"
+                title="PIN kopieren"
+              >
+                {copiedCode ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Bei jedem Anruf angeben
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Membership Badge */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white">
-          <p className="text-xs font-medium opacity-80">Ihr Paket</p>
-          <p className="text-lg font-bold">Medium (M)</p>
-          <p className="mt-1 text-xs opacity-80">200 Punkte / Monat</p>
+      {/* Secondary Navigation - Below Card */}
+      <div className="px-3 pb-3">
+        <div className="flex gap-2">
+          {secondaryNavigation.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors',
+                  isActive
+                    ? 'bg-white text-primary-700 shadow-sm'
+                    : 'text-gray-500 hover:bg-white hover:text-gray-700 hover:shadow-sm'
+                )}
+              >
+                <item.icon className="h-3.5 w-3.5" />
+                {item.name}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>

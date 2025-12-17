@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   TrendingUp,
   FileCheck,
+  FlaskConical,
   X,
   ChevronRight,
 } from 'lucide-react'
@@ -31,6 +32,8 @@ export function NotificationsDropdown({
 
   const getIcon = (type: Notification['type']) => {
     switch (type) {
+      case 'test_required':
+        return <FlaskConical className="h-4 w-4 text-purple-600" />
       case 'acceptance_required':
         return <FileCheck className="h-4 w-4 text-yellow-600" />
       case 'message':
@@ -48,6 +51,8 @@ export function NotificationsDropdown({
 
   const getTypeColor = (type: Notification['type']) => {
     switch (type) {
+      case 'test_required':
+        return 'bg-purple-100'
       case 'acceptance_required':
         return 'bg-yellow-100'
       case 'message':
@@ -61,6 +66,24 @@ export function NotificationsDropdown({
       default:
         return 'bg-gray-100'
     }
+  }
+
+  const getActionBadge = (type: Notification['type'], actionRequired: boolean) => {
+    if (type === 'test_required') {
+      return (
+        <span className="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+          Test erforderlich
+        </span>
+      )
+    }
+    if (actionRequired) {
+      return (
+        <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
+          Aktion erforderlich
+        </span>
+      )
+    }
+    return null
   }
 
   return (
@@ -136,11 +159,7 @@ export function NotificationsDropdown({
                         <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
                           {notification.title}
                         </p>
-                        {notification.actionRequired && (
-                          <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
-                            Aktion erforderlich
-                          </span>
-                        )}
+                        {getActionBadge(notification.type, notification.actionRequired)}
                       </div>
                       <p className="mt-0.5 text-sm text-gray-600 line-clamp-2">
                         {notification.message}

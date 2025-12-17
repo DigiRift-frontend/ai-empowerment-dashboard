@@ -1,239 +1,411 @@
 'use client'
 
+import { useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/layout/header'
-import { StatCard } from '@/components/dashboard/stat-card'
-import { PointsDonut } from '@/components/dashboard/points-donut'
-import { ModuleCard } from '@/components/dashboard/module-card'
-import { TransactionList } from '@/components/dashboard/transaction-list'
-import { UpcomingMeetings } from '@/components/dashboard/upcoming-meetings'
-import { RoadmapItemCard } from '@/components/dashboard/roadmap-item'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 import {
   mockCustomer,
-  mockModules,
-  mockPointTransactions,
   mockRoadmapItems,
-  mockMeetings,
-  mockDashboardStats,
-  getPointsByCategory,
+  mockModules,
+  mockWorkshops,
+  getPendingAcceptanceItems,
+  getTestRequiredItems,
 } from '@/lib/mock-data'
-import { formatNumber, formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import {
-  Coins,
+  ChevronRight,
   Cpu,
-  TrendingUp,
+  Target,
+  GraduationCap,
+  AlertCircle,
+  Package,
+  X,
   Calendar,
-  ArrowRight,
-  Receipt,
+  CreditCard,
+  TrendingUp,
 } from 'lucide-react'
-import Link from 'next/link'
 
 export default function DashboardPage() {
-  const stats = mockDashboardStats
-  const pointsByCategory = getPointsByCategory()
+  const [showPackageDetails, setShowPackageDetails] = useState(false)
   const membership = mockCustomer.membership
-  const percentUsed = Math.round((membership.usedPoints / membership.monthlyPoints) * 100)
 
-  const activeRoadmapItems = mockRoadmapItems.filter(
-    (item) => item.status === 'in-arbeit'
-  )
+  // Nächste Ziele
+  const activeProjects = mockRoadmapItems.filter(i => i.status === 'in-arbeit')
+  const nextPlannedProject = mockRoadmapItems.find(i => i.status === 'geplant')
+
+  // Aktive Module
+  const liveModules = mockModules.filter(m => m.status === 'live')
+
+  // Schulungen
+  const upcomingWorkshop = mockWorkshops.find(w => w.status === 'geplant')
+
+  // Offene Aktionen
+  const pendingAcceptance = getPendingAcceptanceItems()
+  const pendingTests = getTestRequiredItems()
+  const hasActions = pendingAcceptance.length > 0 || pendingTests.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        title="Willkommen zurück"
-        subtitle={`${mockCustomer.companyName} - Paket ${membership.tier}`}
+        title="AI Empowerment Programm"
+        badge={`Paket ${membership.tier}`}
       />
 
       <div className="p-6">
-        {/* Stats Overview */}
-        <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Verbrauchte Punkte"
-            value={`${formatNumber(stats.pointsUsed)} / ${formatNumber(stats.pointsTotal)}`}
-            subtitle={`${stats.pointsRemaining} Punkte verfügbar`}
-            icon={Coins}
-            iconClassName="bg-primary-500"
-          />
-          <StatCard
-            title="Aktive Module"
-            value={stats.activeModules}
-            subtitle={`${stats.modulesInSetup} im Setup`}
-            icon={Cpu}
-            iconClassName="bg-green-500"
-          />
-          <StatCard
-            title="Roadmap Fortschritt"
-            value={`${stats.roadmapProgress}%`}
-            subtitle="Gesamtfortschritt"
-            icon={TrendingUp}
-            iconClassName="bg-yellow-500"
-          />
-          <StatCard
-            title="Externe Kosten"
-            value={formatCurrency(stats.currentMonthCosts)}
-            subtitle="Aktueller Monat"
-            icon={Receipt}
-            iconClassName="bg-purple-500"
-          />
-        </div>
+        <div className="mx-auto max-w-5xl space-y-6">
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Points & Modules */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Points Budget Card */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Punktebudget Dezember</CardTitle>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {membership.usedPoints} von {membership.monthlyPoints} Punkten verbraucht
-                  </p>
+          {/* Welcome Hero */}
+          <div className="py-8 text-center">
+            <h2 className="text-5xl font-light tracking-tight">
+              <span className="bg-gradient-to-r from-emerald-400 via-cyan-500 to-blue-500 bg-clip-text text-transparent">
+                Willkommen
+              </span>
+              {' '}
+              <span className="text-gray-900">{mockCustomer.companyName}</span>
+            </h2>
+          </div>
+
+          {/* Offene Aktionen - nur wenn vorhanden */}
+          {hasActions && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                  <span className="font-medium text-gray-900">
+                    {pendingAcceptance.length + pendingTests.length} offene Aufgaben
+                  </span>
+                  <div className="flex-1" />
+                  {pendingAcceptance.length > 0 && (
+                    <Link href={`/roadmap/${pendingAcceptance[0].id}`}>
+                      <Button size="sm" variant="outline">
+                        Kriterien bestätigen
+                      </Button>
+                    </Link>
+                  )}
+                  {pendingTests.length > 0 && (
+                    <Link href={`/roadmap/${pendingTests[0].id}`}>
+                      <Button size="sm" variant="outline">
+                        Test durchführen
+                      </Button>
+                    </Link>
+                  )}
                 </div>
-                <Link href="/budget">
-                  <Button variant="outline" size="sm">
-                    Details <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <Progress value={percentUsed} size="lg" showLabel />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <PointsDonut
-                      entwicklung={pointsByCategory.entwicklung}
-                      wartung={pointsByCategory.wartung}
-                      schulung={pointsByCategory.schulung}
-                      total={membership.monthlyPoints}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Paket-Modul */}
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowPackageDetails(true)}
+              className="w-full max-w-md text-left"
+            >
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100">
+                      <Package className="h-6 w-6 text-primary-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">Paket {membership.tier}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {membership.monthlyPoints} Pkt./Monat
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 mt-1">
+                        <span className="text-sm text-gray-600">
+                          <span className="font-medium text-gray-900">{membership.remainingPoints}</span> Punkte verfügbar
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          Nächster Einzug: {formatDate(membership.periodEnd)}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <div className="mt-3">
+                    <Progress
+                      value={(membership.usedPoints / membership.monthlyPoints) * 100}
+                      size="sm"
                     />
                   </div>
-                  <div className="space-y-3">
-                    <div className="rounded-lg bg-blue-50 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Entwicklung</span>
-                        <span className="font-semibold text-blue-600">{pointsByCategory.entwicklung} Punkte</span>
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-green-50 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Wartung</span>
-                        <span className="font-semibold text-green-600">{pointsByCategory.wartung} Punkte</span>
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-yellow-50 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Schulung</span>
-                        <span className="font-semibold text-yellow-600">{pointsByCategory.schulung} Punkte</span>
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-gray-50 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Verfügbar</span>
-                        <span className="font-semibold text-gray-600">{stats.pointsRemaining} Punkte</span>
-                      </div>
-                    </div>
+                </CardContent>
+              </Card>
+            </button>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Aktuelle Ziele */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4 text-gray-400" />
+                    Aktuelle Ziele
+                  </CardTitle>
+                  <Link href="/roadmap">
+                    <Button variant="ghost" size="sm">
+                      Roadmap
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {activeProjects.length === 0 && !nextPlannedProject ? (
+                  <p className="text-gray-500 text-sm py-4">Keine aktiven Projekte</p>
+                ) : (
+                  <div className="space-y-4">
+                    {activeProjects.map((project) => (
+                      <Link key={project.id} href={`/roadmap/${project.id}`} className="block">
+                        <div className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-900">{project.title}</span>
+                            <Badge variant="secondary">{project.progress}%</Badge>
+                          </div>
+                          <Progress value={project.progress} size="sm" />
+                          <p className="text-xs text-gray-500 mt-2 line-clamp-1">
+                            {project.description}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                    {nextPlannedProject && (
+                      <Link href={`/roadmap/${nextPlannedProject.id}`} className="block">
+                        <div className="rounded-lg border border-dashed border-gray-300 p-3 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">{nextPlannedProject.title}</span>
+                            <Badge variant="outline">Geplant</Badge>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Nächstes Projekt in der Pipeline
+                          </p>
+                        </div>
+                      </Link>
+                    )}
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Active Modules */}
+            {/* Aktive Module */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Aktive Module</CardTitle>
-                <Link href="/modules">
-                  <Button variant="outline" size="sm">
-                    Alle anzeigen <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {mockModules.slice(0, 4).map((module) => (
-                    <ModuleCard key={module.id} module={module} />
-                  ))}
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-gray-400" />
+                    Ihre KI-Module
+                  </CardTitle>
+                  <Link href="/modules">
+                    <Button variant="ghost" size="sm">
+                      Alle
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Roadmap Progress */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Aktuelle Roadmap</CardTitle>
-                <Link href="/roadmap">
-                  <Button variant="outline" size="sm">
-                    Zur Roadmap <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {activeRoadmapItems.map((item) => (
-                    <RoadmapItemCard key={item.id} item={item} />
-                  ))}
-                </div>
+              <CardContent className="pt-0">
+                {liveModules.length === 0 ? (
+                  <p className="text-gray-500 text-sm py-4">Keine aktiven Module</p>
+                ) : (
+                  <div className="space-y-2">
+                    {liveModules.map((module) => (
+                      <Link key={module.id} href="/modules" className="block">
+                        <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
+                          <div>
+                            <p className="font-medium text-gray-900">{module.name}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {module.monthlyMaintenancePoints} Punkte/Monat Wartung
+                            </p>
+                          </div>
+                          <Badge className="bg-green-100 text-green-700">Live</Badge>
+                        </div>
+                      </Link>
+                    ))}
+                    {mockModules.filter(m => m.status === 'setup').length > 0 && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        + {mockModules.filter(m => m.status === 'setup').length} Module im Setup
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Right Column - Sidebar Content */}
-          <div className="space-y-6">
-            {/* Upcoming Meetings */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                  Nächste Termine
+          {/* Schulungen */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-gray-400" />
+                  KI-Schulungen für Ihr Team
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <UpcomingMeetings meetings={mockMeetings} />
-              </CardContent>
-            </Card>
-
-            {/* Recent Transactions */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle>Letzte Aktivitäten</CardTitle>
-                <Link href="/budget">
+                <Link href="/schulungen">
                   <Button variant="ghost" size="sm">
-                    Alle <ArrowRight className="ml-1 h-4 w-4" />
+                    Alle Kurse
+                    <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </Link>
-              </CardHeader>
-              <CardContent>
-                <TransactionList transactions={mockPointTransactions} limit={5} />
-              </CardContent>
-            </Card>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Link href="/schulungen" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
+                    <p className="text-2xl font-bold text-gray-900">8</p>
+                    <p className="text-sm text-gray-500">Verfügbare Kurse</p>
+                  </div>
+                </Link>
+                <Link href="/schulungen" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
+                    <p className="text-2xl font-bold text-green-600">
+                      {mockWorkshops.filter(w => w.status === 'abgeschlossen').length}
+                    </p>
+                    <p className="text-sm text-gray-500">Abgeschlossen</p>
+                  </div>
+                </Link>
+                {upcomingWorkshop ? (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition-colors">
+                      <p className="text-sm font-medium text-gray-900">{upcomingWorkshop.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{upcomingWorkshop.date}</p>
+                    </div>
+                  </Link>
+                ) : (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors text-center">
+                      <p className="text-sm text-gray-500">Schulung buchen</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Schnellaktionen</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button className="w-full justify-start" variant="outline">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Termin vereinbaren
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Cpu className="mr-2 h-4 w-4" />
-                  Neues Modul anfragen
-                </Button>
-                <Button className="w-full justify-start" variant="outline">
-                  <Receipt className="mr-2 h-4 w-4" />
-                  Monatsbericht exportieren
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
+
+      {/* Paket-Details Modal */}
+      {showPackageDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-100">
+                  <Package className="h-5 w-5 text-primary-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Paket {membership.tier}</h3>
+                  <p className="text-sm text-gray-500">AI Empowerment Programm</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPackageDetails(false)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Punkte-Übersicht */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">Punktebudget</span>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600">Monatlich</span>
+                    <span className="font-semibold text-gray-900">{membership.monthlyPoints} Punkte</span>
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600">Verbraucht</span>
+                    <span className="text-gray-900">{membership.usedPoints} Punkte</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                    <span className="font-medium text-gray-700">Verfügbar</span>
+                    <span className="font-semibold text-primary-600">{membership.remainingPoints} Punkte</span>
+                  </div>
+                </div>
+                {membership.carriedOverPoints && (membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3 > 0) && (
+                  <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Übertragene Punkte</span>
+                      <span className="font-medium text-gray-900">
+                        {membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3} Punkte
+                      </span>
+                    </div>
+                    {membership.carriedOverPoints.month1 > 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        {membership.carriedOverPoints.month1} Punkte verfallen Ende nächsten Monat
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      Punkte können max. 3 Monate übertragen werden
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Vertragsdaten */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">Vertragsdaten</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">Vertragsbeginn</p>
+                    <p className="font-medium text-gray-900">{formatDate(membership.contractStart)}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">Aktueller Zeitraum</p>
+                    <p className="font-medium text-gray-900">
+                      {formatDate(membership.periodStart)} - {formatDate(membership.periodEnd)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kosten */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">Kosten</span>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Monatlicher Beitrag</span>
+                    <span className="text-xl font-bold text-gray-900">
+                      {membership.monthlyPrice.toLocaleString('de-DE')} €
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Nächster Einzug am {formatDate(membership.periodEnd)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 px-6 py-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowPackageDetails(false)}
+              >
+                Schließen
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

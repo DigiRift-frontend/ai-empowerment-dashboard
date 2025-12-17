@@ -7,14 +7,22 @@ import { mockNotifications } from '@/lib/mock-data'
 interface HeaderProps {
   title: string
   subtitle?: string
+  badge?: string
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, badge }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+          {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+        </div>
+        {badge && (
+          <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-semibold text-primary-700">
+            {badge}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-4">

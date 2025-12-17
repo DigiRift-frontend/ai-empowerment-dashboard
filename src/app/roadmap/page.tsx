@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { mockRoadmapItems, mockCustomer, getPendingAcceptanceCount } from '@/lib/mock-data'
+import { mockRoadmapItems, mockCustomer, getPendingAcceptanceCount, getTeamMemberById } from '@/lib/mock-data'
 import { formatDate, formatNumber } from '@/lib/utils'
 import {
   Map,
@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   FileCheck,
   Download,
-  Coins,
+  User,
+  FlaskConical,
 } from 'lucide-react'
 import { RoadmapStatus } from '@/types'
 
@@ -37,12 +38,14 @@ export default function RoadmapPage() {
   const itemsByStatus = {
     geplant: filteredItems.filter((item) => item.status === 'geplant'),
     'in-arbeit': filteredItems.filter((item) => item.status === 'in-arbeit'),
+    'im-test': filteredItems.filter((item) => item.status === 'im-test'),
     abgeschlossen: filteredItems.filter((item) => item.status === 'abgeschlossen'),
   }
 
   const statusConfig = {
     geplant: { label: 'Geplant', color: 'bg-gray-100', textColor: 'text-gray-600', icon: Calendar },
     'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100', textColor: 'text-blue-600', icon: Clock },
+    'im-test': { label: 'Im Test', color: 'bg-purple-100', textColor: 'text-purple-600', icon: FlaskConical },
     abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100', textColor: 'text-green-600', icon: CheckCircle2 },
   }
 
@@ -84,11 +87,10 @@ Priorität: ${priorityConfig[item.priority].label}
 Fortschritt: ${item.progress}%
 ${item.startDate ? `Startdatum: ${formatDate(item.startDate)}` : ''}
 ${item.targetDate ? `Zieldatum: ${formatDate(item.targetDate)}` : ''}
-Geschätzte Punkte: ${item.totalEstimatedPoints || 0}
 Akzeptanzstatus: ${item.acceptanceStatus === 'akzeptiert' ? 'Akzeptiert' : 'Ausstehend'}
 
 Akzeptanzkriterien:
-${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.estimatedPoints} Pkt.)`).join('\n') || '  Keine definiert'}
+${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\n') || '  Keine definiert'}
 
 `).join('\n')}
     `.trim()
@@ -130,7 +132,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
         )}
 
         {/* Summary Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-5">
+        <div className="mb-6 grid gap-4 md:grid-cols-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -169,6 +171,20 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
                 </div>
                 <div className="rounded-lg bg-blue-100 p-3">
                   <Clock className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Im Test</p>
+                  <p className="text-2xl font-bold text-purple-600">{itemsByStatus['im-test'].length}</p>
+                </div>
+                <div className="rounded-lg bg-purple-100 p-3">
+                  <FlaskConical className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
@@ -246,8 +262,8 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
 
         {/* Kanban View */}
         {viewMode === 'kanban' && (
-          <div className="grid gap-6 lg:grid-cols-3">
-            {(['geplant', 'in-arbeit', 'abgeschlossen'] as RoadmapStatus[]).map((status) => {
+          <div className="grid gap-6 lg:grid-cols-4">
+            {(['geplant', 'in-arbeit', 'im-test', 'abgeschlossen'] as RoadmapStatus[]).map((status) => {
               const config = statusConfig[status]
               const StatusIcon = config.icon
               const items = itemsByStatus[status]
@@ -265,11 +281,26 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
                   <div className="space-y-3">
                     {items.map((item) => {
                       const acceptanceInfo = item.acceptanceStatus ? acceptanceConfig[item.acceptanceStatus] : null
+                      const isInTest = item.status === 'im-test'
 
                       return (
                         <Link key={item.id} href={`/roadmap/${item.id}`}>
-                          <Card className="cursor-pointer transition-all hover:shadow-md hover:border-primary-300">
+                          <Card className={`cursor-pointer transition-all hover:shadow-md ${
+                            isInTest
+                              ? 'border-2 border-purple-400 bg-purple-50/50 hover:border-purple-500'
+                              : 'hover:border-primary-300'
+                          }`}>
                             <CardContent className="p-4">
+                              {/* Test Required Banner */}
+                              {isInTest && (
+                                <div className="mb-3 -mx-4 -mt-4 rounded-t-lg bg-purple-600 px-4 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
+                                    <FlaskConical className="h-4 w-4" />
+                                    Ihr Test ist erforderlich
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="mb-2 flex items-start justify-between">
                                 <h4 className="font-medium text-gray-900">{item.title}</h4>
                                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
@@ -277,6 +308,14 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
                                 </span>
                               </div>
                               <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
+
+                              {/* Assignee */}
+                              {item.assigneeId && (
+                                <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+                                  <User className="h-3 w-3" />
+                                  <span>{getTeamMemberById(item.assigneeId)?.name}</span>
+                                </div>
+                              )}
 
                               {/* Acceptance Status Badge */}
                               {item.acceptanceStatus === 'ausstehend' && (
@@ -296,22 +335,12 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
                                 </div>
                               )}
 
-                              <div className="flex items-center justify-between text-xs text-gray-500">
-                                <div className="flex items-center gap-2">
-                                  {item.targetDate && (
-                                    <div className="flex items-center gap-1">
-                                      <Target className="h-3 w-3" />
-                                      <span>{formatDate(item.targetDate)}</span>
-                                    </div>
-                                  )}
+                              {item.targetDate && (
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Target className="h-3 w-3" />
+                                  <span>{formatDate(item.targetDate)}</span>
                                 </div>
-                                {item.totalEstimatedPoints && (
-                                  <div className="flex items-center gap-1">
-                                    <Coins className="h-3 w-3" />
-                                    <span>{item.totalEstimatedPoints} Pkt.</span>
-                                  </div>
-                                )}
-                              </div>
+                              )}
                             </CardContent>
                           </Card>
                         </Link>
@@ -363,26 +392,24 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description} (${c.esti
                             )}
                           </div>
                           <p className="mt-1 text-sm text-gray-600">{item.description}</p>
+                          {item.assigneeId && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                              <User className="h-3 w-3" />
+                              <span>{getTeamMemberById(item.assigneeId)?.name}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="w-32">
                           <Progress value={item.progress} size="sm" showLabel />
                         </div>
 
-                        <div className="text-right text-sm text-gray-500">
-                          {item.totalEstimatedPoints && (
-                            <div className="flex items-center gap-1 justify-end mb-1">
-                              <Coins className="h-4 w-4" />
-                              <span>{item.totalEstimatedPoints} Pkt.</span>
-                            </div>
-                          )}
-                          {item.targetDate && (
-                            <div className="flex items-center gap-1 justify-end">
-                              <Target className="h-4 w-4" />
-                              <span>{formatDate(item.targetDate)}</span>
-                            </div>
-                          )}
-                        </div>
+                        {item.targetDate && (
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <Target className="h-4 w-4" />
+                            <span>{formatDate(item.targetDate)}</span>
+                          </div>
+                        )}
 
                         <ArrowRight className="h-4 w-4 text-gray-400" />
                       </div>

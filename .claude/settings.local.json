@@ -7,7 +7,12 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(gh repo create:*)"
+      "Bash(gh repo create:*)",
+      "Bash(git push)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(PORT=3004 npm run dev:*)",
+      "Bash(ls:*)"
     ]
   }
 }

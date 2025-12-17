@@ -7,11 +7,9 @@ import { Button } from '@/components/ui/button'
 import { UpcomingMeetings } from '@/components/dashboard/upcoming-meetings'
 import {
   mockWorkshops,
-  mockTeamMembers,
-  mockDecisions,
   mockMeetings,
 } from '@/lib/mock-data'
-import { formatDate, formatNumber } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import {
   GraduationCap,
   Users,
@@ -19,12 +17,7 @@ import {
   Calendar,
   Clock,
   CheckCircle2,
-  User,
-  Briefcase,
-  Building,
-  MessageSquare,
   Video,
-  ArrowRight,
 } from 'lucide-react'
 
 export default function EnablementPage() {
@@ -37,12 +30,12 @@ export default function EnablementPage() {
     <div className="min-h-screen bg-gray-50">
       <Header
         title="Enablement"
-        subtitle="Schulungen, Teams und Zusammenarbeit"
+        subtitle="Schulungen und Workshops"
       />
 
       <div className="p-6">
         {/* Summary Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -68,21 +61,6 @@ export default function EnablementPage() {
                 </div>
                 <div className="rounded-lg bg-green-100 p-3">
                   <Users className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Team-Mitglieder</p>
-                  <p className="text-2xl font-bold">{mockTeamMembers.length}</p>
-                  <p className="text-xs text-gray-500">aktiv beteiligt</p>
-                </div>
-                <div className="rounded-lg bg-blue-100 p-3">
-                  <User className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -166,78 +144,6 @@ export default function EnablementPage() {
               </CardContent>
             </Card>
 
-            {/* Decisions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-gray-400" />
-                  Dokumentierte Entscheidungen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockDecisions.map((decision) => (
-                    <div
-                      key={decision.id}
-                      className="rounded-lg border border-gray-200 p-4"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{decision.title}</h4>
-                          <p className="mt-1 text-sm text-gray-600">{decision.description}</p>
-                        </div>
-                        <span className="text-sm text-gray-500">{formatDate(decision.date)}</span>
-                      </div>
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="text-xs text-gray-400">Beteiligte:</span>
-                        {decision.participants.map((participant, index) => (
-                          <span
-                            key={index}
-                            className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                          >
-                            {participant}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Team */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-gray-400" />
-                  Beteiligte Teams & Rollen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {mockTeamMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 p-3"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-                        <User className="h-5 w-5 text-primary-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{member.name}</p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <Briefcase className="h-3 w-3" />
-                          <span>{member.role}</span>
-                          <span>•</span>
-                          <Building className="h-3 w-3" />
-                          <span>{member.department}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right Column */}
@@ -290,26 +196,6 @@ export default function EnablementPage() {
               </CardContent>
             </Card>
 
-            {/* Roles Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Rollen im Projekt</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {['Projektleiter', 'KI Champion', 'Fachanwender', 'Admin'].map((role) => {
-                    const count = mockTeamMembers.filter((m) => m.role === role).length
-                    return (
-                      <div key={role} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">{role}</span>
-                        <Badge variant="secondary">{count}</Badge>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Quick Actions */}
             <Card className="bg-gradient-to-br from-primary-50 to-primary-100">
               <CardContent className="pt-6">
@@ -318,14 +204,6 @@ export default function EnablementPage() {
                   <Button className="w-full justify-start" variant="secondary">
                     <Video className="mr-2 h-4 w-4" />
                     Workshop anfragen
-                  </Button>
-                  <Button className="w-full justify-start" variant="secondary">
-                    <User className="mr-2 h-4 w-4" />
-                    Team-Mitglied hinzufügen
-                  </Button>
-                  <Button className="w-full justify-start" variant="secondary">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Entscheidung dokumentieren
                   </Button>
                 </div>
               </CardContent>

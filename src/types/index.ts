@@ -7,8 +7,26 @@ export interface Membership {
   monthlyPoints: number
   usedPoints: number
   remainingPoints: number
-  periodStart: string
-  periodEnd: string
+  monthlyPrice: number // Preis in EUR
+  contractStart: string // Vertragsstart
+  periodStart: string // Aktueller Abrechnungszeitraum Start
+  periodEnd: string // Aktueller Abrechnungszeitraum Ende (nächste Abbuchung)
+  // Übertragene Punkte (max 3 Monate)
+  carriedOverPoints?: {
+    month1: number // Älteste - verfallen als nächstes
+    month2: number
+    month3: number // Neueste
+  }
+}
+
+export interface CustomerAdvisor {
+  id: string
+  name: string
+  role: string
+  email: string
+  phone: string
+  avatarUrl?: string
+  calendlyUrl?: string
 }
 
 export interface Customer {
@@ -16,7 +34,9 @@ export interface Customer {
   name: string
   companyName: string
   email: string
+  customerCode: string // 4-stelliger Code für Anrufe
   membership: Membership
+  advisor: CustomerAdvisor
 }
 
 // Punkte & Transaktionen
@@ -52,6 +72,8 @@ export interface Module {
   description: string
   status: ModuleStatus
   monthlyMaintenancePoints: number
+  assigneeId?: string
+  softwareUrl?: string // Optionaler Link zur Software
   createdAt: string
   updatedAt: string
 }
@@ -66,14 +88,21 @@ export interface ModuleHistoryEntry {
 }
 
 // Roadmap & Projekte
-export type RoadmapStatus = 'geplant' | 'in-arbeit' | 'abgeschlossen'
+export type RoadmapStatus = 'geplant' | 'in-arbeit' | 'im-test' | 'abgeschlossen'
+
+// Test Feedback
+export interface TestFeedback {
+  id: string
+  date: string
+  feedback: string
+  resolved: boolean
+}
 export type RoadmapPriority = 'hoch' | 'mittel' | 'niedrig'
 export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
 
 export interface AcceptanceCriterion {
   id: string
   description: string
-  estimatedPoints: number
   accepted?: boolean
 }
 
@@ -88,12 +117,17 @@ export interface RoadmapItem {
   targetDate?: string
   completedDate?: string
   useCaseId?: string
+  // Zugewiesene Person
+  assigneeId?: string
   // Akzeptanzkriterien
   acceptanceCriteria?: AcceptanceCriterion[]
   acceptanceStatus?: AcceptanceStatus
   acceptedAt?: string
   acceptedBy?: string
-  totalEstimatedPoints?: number
+  // Test-Phase
+  testFeedback?: TestFeedback[]
+  testCompletedAt?: string
+  testCompletedBy?: string
 }
 
 export interface Milestone {
@@ -161,6 +195,7 @@ export interface MonthlySummary {
 // Benachrichtigungen & Nachrichten
 export type NotificationType =
   | 'acceptance_required'  // Akzeptanzkriterien müssen bestätigt werden
+  | 'test_required'        // Projekt ist im Test - Kunde muss testen
   | 'message'              // Nachricht vom Admin
   | 'project_update'       // Projekt-Update
   | 'milestone_reached'    // Meilenstein erreicht
