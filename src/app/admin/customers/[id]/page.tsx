@@ -844,7 +844,7 @@ export default function CustomerDetailPage() {
                   className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  Schulung zuweisen
+                  Schulung hinzufügen
                 </button>
               </div>
 
@@ -859,7 +859,7 @@ export default function CustomerDetailPage() {
                     onClick={() => setShowAddSchulungModal(true)}
                     className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                   >
-                    Erste Schulung zuweisen
+                    Erste Schulung hinzufügen
                   </button>
                 </div>
               ) : (
@@ -1981,8 +1981,8 @@ export default function CustomerDetailPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Schulung zuweisen</h2>
-                <p className="text-sm text-gray-500">Wählen Sie eine Schulung oder eine Serie aus</p>
+                <h2 className="text-lg font-semibold text-gray-900">Schulung hinzufügen</h2>
+                <p className="text-sm text-gray-500">Wählen Sie eine Schulung oder erstellen Sie eine neue</p>
               </div>
               <button
                 onClick={() => setShowAddSchulungModal(false)}
@@ -1993,6 +1993,17 @@ export default function CustomerDetailPage() {
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-6">
+              {/* Create New Schulung Button */}
+              <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                <Link
+                  href="/admin/schulungen"
+                  className="flex items-center justify-center gap-2 text-primary-600 hover:text-primary-700"
+                  onClick={() => setShowAddSchulungModal(false)}
+                >
+                  <Plus className="h-5 w-5" />
+                  <span className="font-medium">Neue Schulung im Katalog erstellen</span>
+                </Link>
+              </div>
               {/* Series Section */}
               {schulungSerien.length > 0 && (
                 <div>
