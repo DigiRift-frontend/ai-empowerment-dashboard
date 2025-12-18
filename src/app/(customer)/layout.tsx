@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/layout/sidebar'
+import { AuthGuard } from '@/components/auth/auth-guard'
 
 export default function CustomerLayout({
   children,
@@ -6,11 +7,13 @@ export default function CustomerLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex h-screen">
+        <Sidebar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
+    </AuthGuard>
   )
 }

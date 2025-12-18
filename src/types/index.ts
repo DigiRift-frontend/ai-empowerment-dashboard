@@ -7,8 +7,11 @@ export interface Membership {
   monthlyPoints: number
   usedPoints: number
   remainingPoints: number
+  bonusPoints: number // Extra-Punkte gutgeschrieben
   monthlyPrice: number // Preis in EUR
+  discountPercent: number // Rabatt in Prozent (z.B. 10 = 10%)
   contractStart: string // Vertragsstart
+  contractEnd?: string // Vertragsende (optional)
   periodStart: string // Aktueller Abrechnungszeitraum Start
   periodEnd: string // Aktueller Abrechnungszeitraum Ende (nächste Abbuchung)
   // Übertragene Punkte (max 3 Monate)
@@ -35,6 +38,7 @@ export interface Customer {
   companyName: string
   email: string
   customerCode: string // 4-stelliger Code für Anrufe
+  password?: string // Generiertes Passwort
   membership: Membership
   advisor: CustomerAdvisor
 }

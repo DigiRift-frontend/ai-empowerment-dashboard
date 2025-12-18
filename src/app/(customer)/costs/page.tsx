@@ -1,16 +1,13 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { MonthlyChart } from '@/components/dashboard/monthly-chart'
-import {
-  mockMonthlySummaries,
-  mockPointTransactions,
-  mockCustomer,
-  getPointsByCategory,
-} from '@/lib/mock-data'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/utils'
 import {
   Coins,
@@ -22,18 +19,67 @@ import {
   Wrench,
   GraduationCap,
   Code,
+  Loader2,
 } from 'lucide-react'
 
 export default function CostsPage() {
-  const pointsByCategory = getPointsByCategory()
-  const totalPointsUsed = pointsByCategory.entwicklung + pointsByCategory.wartung + pointsByCategory.schulung
-  const { membership } = mockCustomer
+  const { customerId } = useAuth()
+  const { customer, isLoading } = useCustomer(customerId || '')
 
   const tierNames = {
     S: 'Small',
     M: 'Medium',
     L: 'Large',
   }
+
+  // Calculate points by category from transactions
+  const pointsByCategory = useMemo(() => {
+    if (!customer?.transactions) {
+      return { entwicklung: 0, wartung: 0, schulung: 0 }
+    }
+
+    const currentMonth = new Date().toISOString().slice(0, 7)
+    const monthlyTransactions = customer.transactions.filter(
+      (t: any) => t.date.slice(0, 7) === currentMonth
+    )
+
+    return monthlyTransactions.reduce(
+      (acc: any, t: any) => {
+        acc[t.category] = (acc[t.category] || 0) + t.points
+        return acc
+      },
+      { entwicklung: 0, wartung: 0, schulung: 0 }
+    )
+  }, [customer?.transactions])
+
+  // Calculate monthly summaries from transactions
+  const monthlySummaries = useMemo(() => {
+    if (!customer?.transactions) return []
+
+    const summaries: Record<string, { month: string; total: number; entwicklung: number; wartung: number; schulung: number }> = {}
+
+    customer.transactions.forEach((t: any) => {
+      const month = t.date.slice(0, 7)
+      if (!summaries[month]) {
+        summaries[month] = { month, total: 0, entwicklung: 0, wartung: 0, schulung: 0 }
+      }
+      summaries[month].total += t.points
+      summaries[month][t.category as keyof typeof summaries[string]] += t.points
+    })
+
+    return Object.values(summaries).sort((a, b) => a.month.localeCompare(b.month))
+  }, [customer?.transactions])
+
+  if (isLoading || !customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  const { membership, transactions = [] } = customer
+  const totalPointsUsed = pointsByCategory.entwicklung + pointsByCategory.wartung + pointsByCategory.schulung
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,7 +100,7 @@ export default function CostsPage() {
                 <div>
                   <p className="text-sm text-white/80">Ihr Paket</p>
                   <p className="text-2xl font-bold">Paket {membership.tier}</p>
-                  <p className="text-sm text-white/80">{tierNames[membership.tier]}</p>
+                  <p className="text-sm text-white/80">{tierNames[membership.tier as keyof typeof tierNames]}</p>
                 </div>
               </div>
 
@@ -169,7 +215,7 @@ export default function CostsPage() {
             {/* Points Distribution */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Punkteverteilung Dezember</CardTitle>
+                <CardTitle>Punkteverteilung {new Date().toLocaleDateString('de-DE', { month: 'long' })}</CardTitle>
                 <Badge variant="outline">{formatNumber(totalPointsUsed)} Punkte gesamt</Badge>
               </CardHeader>
               <CardContent>
@@ -181,7 +227,7 @@ export default function CostsPage() {
                         <span className="text-sm font-medium text-blue-700">Entwicklung</span>
                       </div>
                       <span className="rounded-full bg-blue-200 px-2 py-0.5 text-xs font-medium text-blue-700">
-                        {Math.round((pointsByCategory.entwicklung / totalPointsUsed) * 100)}%
+                        {totalPointsUsed > 0 ? Math.round((pointsByCategory.entwicklung / totalPointsUsed) * 100) : 0}%
                       </span>
                     </div>
                     <p className="mt-2 text-2xl font-bold text-blue-600">{pointsByCategory.entwicklung}</p>
@@ -189,7 +235,7 @@ export default function CostsPage() {
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-200">
                       <div
                         className="h-full bg-blue-500"
-                        style={{ width: `${(pointsByCategory.entwicklung / totalPointsUsed) * 100}%` }}
+                        style={{ width: `${totalPointsUsed > 0 ? (pointsByCategory.entwicklung / totalPointsUsed) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -201,7 +247,7 @@ export default function CostsPage() {
                         <span className="text-sm font-medium text-green-700">Wartung</span>
                       </div>
                       <span className="rounded-full bg-green-200 px-2 py-0.5 text-xs font-medium text-green-700">
-                        {Math.round((pointsByCategory.wartung / totalPointsUsed) * 100)}%
+                        {totalPointsUsed > 0 ? Math.round((pointsByCategory.wartung / totalPointsUsed) * 100) : 0}%
                       </span>
                     </div>
                     <p className="mt-2 text-2xl font-bold text-green-600">{pointsByCategory.wartung}</p>
@@ -209,7 +255,7 @@ export default function CostsPage() {
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-green-200">
                       <div
                         className="h-full bg-green-500"
-                        style={{ width: `${(pointsByCategory.wartung / totalPointsUsed) * 100}%` }}
+                        style={{ width: `${totalPointsUsed > 0 ? (pointsByCategory.wartung / totalPointsUsed) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -221,7 +267,7 @@ export default function CostsPage() {
                         <span className="text-sm font-medium text-yellow-700">Schulung</span>
                       </div>
                       <span className="rounded-full bg-yellow-200 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                        {Math.round((pointsByCategory.schulung / totalPointsUsed) * 100)}%
+                        {totalPointsUsed > 0 ? Math.round((pointsByCategory.schulung / totalPointsUsed) * 100) : 0}%
                       </span>
                     </div>
                     <p className="mt-2 text-2xl font-bold text-yellow-600">{pointsByCategory.schulung}</p>
@@ -229,7 +275,7 @@ export default function CostsPage() {
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-yellow-200">
                       <div
                         className="h-full bg-yellow-500"
-                        style={{ width: `${(pointsByCategory.schulung / totalPointsUsed) * 100}%` }}
+                        style={{ width: `${totalPointsUsed > 0 ? (pointsByCategory.schulung / totalPointsUsed) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -243,7 +289,7 @@ export default function CostsPage() {
                 <CardTitle>Punkteverbrauch im Verlauf</CardTitle>
               </CardHeader>
               <CardContent>
-                <MonthlyChart data={mockMonthlySummaries} />
+                <MonthlyChart data={monthlySummaries} />
               </CardContent>
             </Card>
 
@@ -254,7 +300,7 @@ export default function CostsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {mockPointTransactions.slice(0, 8).map((transaction) => (
+                  {transactions.slice(0, 8).map((transaction: any) => (
                     <div
                       key={transaction.id}
                       className="flex items-center justify-between rounded-lg border border-gray-100 p-3"
@@ -280,6 +326,11 @@ export default function CostsPage() {
                       <Badge variant="secondary">{transaction.points} Pkt.</Badge>
                     </div>
                   ))}
+                  {transactions.length === 0 && (
+                    <p className="text-center text-sm text-gray-500 py-4">
+                      Keine Transaktionen vorhanden
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -294,7 +345,7 @@ export default function CostsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {mockMonthlySummaries.slice(-3).reverse().map((summary, index) => {
+                  {monthlySummaries.slice(-3).reverse().map((summary, index) => {
                     const monthDate = new Date(summary.month + '-01')
                     const monthName = monthDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
                     const isCurrentMonth = index === 0
@@ -323,6 +374,11 @@ export default function CostsPage() {
                       </div>
                     )
                   })}
+                  {monthlySummaries.length === 0 && (
+                    <p className="text-center text-sm text-gray-500 py-4">
+                      Keine Daten vorhanden
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

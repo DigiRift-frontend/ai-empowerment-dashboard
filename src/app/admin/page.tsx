@@ -62,7 +62,7 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="text-sm text-gray-500">Monatlicher Umsatz</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {(stats.totalMonthlyRevenue / 100).toLocaleString('de-DE')} €
+                  {stats.totalMonthlyRevenue.toLocaleString('de-DE')} €
                 </p>
               </div>
             </div>

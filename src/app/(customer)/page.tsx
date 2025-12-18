@@ -7,14 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import {
-  mockCustomer,
-  mockRoadmapItems,
-  mockModules,
-  mockWorkshops,
-  getPendingAcceptanceItems,
-  getTestRequiredItems,
-} from '@/lib/mock-data'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/utils'
 import {
   ChevronRight,
@@ -27,32 +21,49 @@ import {
   Calendar,
   CreditCard,
   TrendingUp,
+  Loader2,
 } from 'lucide-react'
 
 export default function DashboardPage() {
+  const { customerId } = useAuth()
+  const { customer, isLoading } = useCustomer(customerId || '')
   const [showPackageDetails, setShowPackageDetails] = useState(false)
-  const membership = mockCustomer.membership
 
-  // Nächste Ziele
-  const activeProjects = mockRoadmapItems.filter(i => i.status === 'in-arbeit')
-  const nextPlannedProject = mockRoadmapItems.find(i => i.status === 'geplant')
+  if (isLoading || !customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  const membership = customer.membership
+  const modules = customer.modules || []
+  const workshops = customer.workshops || []
+
+  // Nächste Ziele - Module die in der Roadmap sichtbar sind
+  const roadmapModules = modules.filter((m: any) => m.showInRoadmap)
+  const activeProjects = roadmapModules.filter((i: any) => i.status === 'in_arbeit')
+  const nextPlannedProject = roadmapModules.find((i: any) => i.status === 'geplant')
 
   // Aktive Module
-  const liveModules = mockModules.filter(m => m.status === 'abgeschlossen')
+  const liveModules = modules.filter((m: any) => m.status === 'abgeschlossen')
 
   // Schulungen
-  const upcomingWorkshop = mockWorkshops.find(w => w.status === 'geplant')
+  const upcomingWorkshop = workshops.find((w: any) => w.status === 'geplant')
 
   // Offene Aktionen
-  const pendingAcceptance = getPendingAcceptanceItems()
-  const pendingTests = getTestRequiredItems()
+  const pendingAcceptance = modules.filter(
+    (m: any) => m.status === 'im_test' && m.acceptanceStatus === 'ausstehend'
+  )
+  const pendingTests = modules.filter(
+    (m: any) => m.status === 'im_test' && !m.testCompletedAt
+  )
   const hasActions = pendingAcceptance.length > 0 || pendingTests.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        title="AI Empowerment Programm"
-      />
+      <Header title="AI Empowerment Programm" />
 
       <div className="p-6">
         <div className="mx-auto max-w-5xl space-y-6">
@@ -64,7 +75,7 @@ export default function DashboardPage() {
                 Willkommen
               </span>
               {' '}
-              <span className="text-gray-900">{mockCustomer.companyName}</span>
+              <span className="text-gray-900">{customer.companyName}</span>
             </h2>
           </div>
 
@@ -160,7 +171,7 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-sm py-4">Keine aktiven Projekte</p>
                 ) : (
                   <div className="space-y-4">
-                    {activeProjects.map((project) => (
+                    {activeProjects.map((project: any) => (
                       <Link key={project.id} href={`/roadmap/${project.id}`} className="block">
                         <div className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
                           <div className="flex items-center justify-between mb-2">
@@ -213,22 +224,22 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-sm py-4">Keine aktiven Module</p>
                 ) : (
                   <div className="space-y-2">
-                    {liveModules.map((module) => (
-                      <Link key={module.id} href="/modules" className="block">
+                    {liveModules.map((mod: any) => (
+                      <Link key={mod.id} href="/modules" className="block">
                         <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
                           <div>
-                            <p className="font-medium text-gray-900">{module.name}</p>
+                            <p className="font-medium text-gray-900">{mod.name}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {module.monthlyMaintenancePoints} Punkte/Monat Wartung
+                              {mod.monthlyMaintenancePoints} Punkte/Monat Wartung
                             </p>
                           </div>
                           <Badge className="bg-green-100 text-green-700">Live</Badge>
                         </div>
                       </Link>
                     ))}
-                    {mockModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length > 0 && (
+                    {modules.filter((m: any) => m.status === 'in_arbeit' || m.status === 'im_test').length > 0 && (
                       <div className="text-xs text-gray-500 mt-2">
-                        + {mockModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length} Module in Arbeit
+                        + {modules.filter((m: any) => m.status === 'in_arbeit' || m.status === 'im_test').length} Module in Arbeit
                       </div>
                     )}
                   </div>
@@ -264,7 +275,7 @@ export default function DashboardPage() {
                 <Link href="/schulungen" className="block">
                   <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {mockWorkshops.filter(w => w.status === 'abgeschlossen').length}
+                      {workshops.filter((w: any) => w.status === 'abgeschlossen').length}
                     </p>
                     <p className="text-sm text-gray-500">Abgeschlossen</p>
                   </div>
@@ -273,7 +284,9 @@ export default function DashboardPage() {
                   <Link href="/schulungen" className="block">
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition-colors">
                       <p className="text-sm font-medium text-gray-900">{upcomingWorkshop.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">{upcomingWorkshop.date}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(upcomingWorkshop.date).toLocaleDateString('de-DE')}
+                      </p>
                     </div>
                   </Link>
                 ) : (
@@ -333,17 +346,17 @@ export default function DashboardPage() {
                     <span className="font-semibold text-primary-600">{membership.remainingPoints} Punkte</span>
                   </div>
                 </div>
-                {membership.carriedOverPoints && (membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3 > 0) && (
+                {(membership.carriedOverMonth1 + membership.carriedOverMonth2 + membership.carriedOverMonth3 > 0) && (
                   <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">Übertragene Punkte</span>
                       <span className="font-medium text-gray-900">
-                        {membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3} Punkte
+                        {membership.carriedOverMonth1 + membership.carriedOverMonth2 + membership.carriedOverMonth3} Punkte
                       </span>
                     </div>
-                    {membership.carriedOverPoints.month1 > 0 && (
+                    {membership.carriedOverMonth1 > 0 && (
                       <p className="text-xs text-orange-600 mt-1">
-                        {membership.carriedOverPoints.month1} Punkte verfallen Ende nächsten Monat
+                        {membership.carriedOverMonth1} Punkte verfallen Ende nächsten Monat
                       </p>
                     )}
                     <p className="text-xs text-gray-500 mt-2">

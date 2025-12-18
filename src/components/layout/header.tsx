@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { User, ChevronDown, Search } from 'lucide-react'
 import { NotificationsDropdown } from '@/components/dashboard/notifications-dropdown'
-import { mockNotifications } from '@/lib/mock-data'
+import { useAuth } from '@/hooks/use-auth'
+import { useCustomer } from '@/hooks/use-customers'
 
 interface HeaderProps {
   title: string
@@ -11,6 +13,57 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, badge }: HeaderProps) {
+  const { customerId } = useAuth()
+  const { customer, mutate } = useCustomer(customerId || '')
+
+  const notifications = customer?.notifications || []
+  const messages = customer?.adminMessages || []
+
+  const handleMarkMessageAsRead = async (messageId: string) => {
+    try {
+      await fetch(`/api/customers/${customerId}/messages/${messageId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: true }),
+      })
+      mutate()
+    } catch (error) {
+      console.error('Error marking message as read:', error)
+    }
+  }
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      // Mark all messages as read
+      const unreadMessages = messages.filter((m: any) => !m.read)
+      await Promise.all(
+        unreadMessages.map((m: any) =>
+          fetch(`/api/customers/${customerId}/messages/${m.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ read: true }),
+          })
+        )
+      )
+
+      // Mark all notifications as read
+      const unreadNotifications = notifications.filter((n: any) => !n.read)
+      await Promise.all(
+        unreadNotifications.map((n: any) =>
+          fetch(`/api/customers/${customerId}/notifications/${n.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ read: true }),
+          })
+        )
+      )
+
+      mutate()
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
       <div className="flex items-center gap-3">
@@ -36,8 +89,13 @@ export function Header({ title, subtitle, badge }: HeaderProps) {
           />
         </div>
 
-        {/* Notifications */}
-        <NotificationsDropdown notifications={mockNotifications} />
+        {/* Notifications & Messages */}
+        <NotificationsDropdown
+          notifications={notifications}
+          messages={messages}
+          onMarkMessageAsRead={handleMarkMessageAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+        />
 
         {/* User Menu */}
         <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
@@ -45,8 +103,8 @@ export function Header({ title, subtitle, badge }: HeaderProps) {
             <User className="h-5 w-5 text-primary-600" />
           </div>
           <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-900">Max Mustermann</p>
-            <p className="text-xs text-gray-500">TechCorp GmbH</p>
+            <p className="text-sm font-medium text-gray-900">{customer?.name || 'Laden...'}</p>
+            <p className="text-xs text-gray-500">{customer?.companyName || ''}</p>
           </div>
           <ChevronDown className="h-4 w-4 text-gray-400" />
         </div>

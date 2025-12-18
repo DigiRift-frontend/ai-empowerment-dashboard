@@ -5,53 +5,140 @@ import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import Link from 'next/link'
-import {
-  mockTeamMembers as initialTeamMembers,
-  mockRoadmapItems,
-  getProjectsByAssignee,
-} from '@/lib/mock-data'
+import { useAuth } from '@/hooks/use-auth'
+import { useCustomer } from '@/hooks/use-customers'
 import {
   Users,
   User,
   Briefcase,
   Building,
-  FolderKanban,
-  CheckCircle2,
-  Clock,
-  ChevronRight,
+  Mail,
+  Phone,
   UserPlus,
   X,
+  Loader2,
+  Pencil,
+  Trash2,
+  Cpu,
 } from 'lucide-react'
-import { TeamMember } from '@/types'
+
+const ROLES = ['Projektleiter', 'KI Champion', 'Fachanwender', 'Admin', 'Entwickler', 'Manager', 'Geschäftsführer', 'Sonstige']
+const DEPARTMENTS = ['IT', 'Vertrieb', 'Marketing', 'Operations', 'Kundenservice', 'Geschäftsführung', 'Finanzen', 'HR', 'Sonstige']
+
+interface TeamMember {
+  id: string
+  name: string
+  role: string
+  department: string
+  email?: string | null
+  phone?: string | null
+  moduleId?: string | null
+}
 
 export default function TeamPage() {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newMember, setNewMember] = useState({ name: '', role: '', department: '' })
+  const { customerId } = useAuth()
+  const { customer, isLoading, mutate } = useCustomer(customerId || '')
+  const [showModal, setShowModal] = useState(false)
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [formData, setFormData] = useState({ name: '', role: '', department: '', email: '', phone: '', moduleId: '' })
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
-  const statusConfig = {
-    geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-600' },
-    'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100 text-blue-600' },
-    'im-test': { label: 'Im Test', color: 'bg-purple-100 text-purple-600' },
-    abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-600' },
+  if (isLoading || !customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
   }
 
-  const roles = ['Projektleiter', 'KI Champion', 'Fachanwender', 'Admin', 'Entwickler', 'Manager']
-  const departments = ['IT', 'Vertrieb', 'Marketing', 'Operations', 'Kundenservice', 'Geschäftsführung']
+  const teamMembers: TeamMember[] = customer.teamMembers || []
+  const modules = customer.modules || []
 
-  // Statistiken
-  const totalProjects = mockRoadmapItems.length
-  const assignedProjects = mockRoadmapItems.filter((p) => p.assigneeId).length
-  const unassignedProjects = totalProjects - assignedProjects
+  // Group by role
+  const membersByRole = teamMembers.reduce((acc: Record<string, TeamMember[]>, member) => {
+    if (!acc[member.role]) acc[member.role] = []
+    acc[member.role].push(member)
+    return acc
+  }, {})
 
-  const handleAddMember = () => {
-    if (newMember.name && newMember.role && newMember.department) {
-      const newId = `tm${teamMembers.length + 1}`
-      setTeamMembers([...teamMembers, { id: newId, ...newMember }])
-      setNewMember({ name: '', role: '', department: '' })
-      setShowAddModal(false)
+  // Group by department
+  const departments = [...new Set(teamMembers.map((m) => m.department))]
+
+  const resetForm = () => {
+    setFormData({ name: '', role: '', department: '', email: '', phone: '', moduleId: '' })
+    setEditingMember(null)
+    setShowModal(false)
+  }
+
+  const openAddModal = () => {
+    setFormData({ name: '', role: '', department: '', email: '', phone: '', moduleId: '' })
+    setEditingMember(null)
+    setShowModal(true)
+  }
+
+  const openEditModal = (member: TeamMember) => {
+    setEditingMember(member)
+    setFormData({
+      name: member.name,
+      role: member.role,
+      department: member.department,
+      email: member.email || '',
+      phone: member.phone || '',
+      moduleId: member.moduleId || '',
+    })
+    setShowModal(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.role || !formData.department || !formData.email) return
+
+    setIsSaving(true)
+    try {
+      if (editingMember) {
+        // Update existing member
+        await fetch(`/api/customers/${customerId}/team/${editingMember.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
+      } else {
+        // Create new member
+        await fetch(`/api/customers/${customerId}/team`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
+      }
+      mutate()
+      resetForm()
+    } catch (error) {
+      console.error('Error saving team member:', error)
+    } finally {
+      setIsSaving(false)
     }
+  }
+
+  const handleDelete = async (memberId: string) => {
+    if (!confirm('Möchten Sie dieses Teammitglied wirklich löschen?')) return
+
+    setIsDeleting(memberId)
+    try {
+      await fetch(`/api/customers/${customerId}/team/${memberId}`, {
+        method: 'DELETE',
+      })
+      mutate()
+    } catch (error) {
+      console.error('Error deleting team member:', error)
+    } finally {
+      setIsDeleting(null)
+    }
+  }
+
+  const getModuleName = (moduleId: string | null | undefined) => {
+    if (!moduleId) return null
+    const module = modules.find((m: any) => m.id === moduleId)
+    return module?.name || null
   }
 
   return (
@@ -83,12 +170,12 @@ export default function TeamPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Projekte gesamt</p>
-                  <p className="text-2xl font-bold">{totalProjects}</p>
-                  <p className="text-xs text-gray-500">in der Roadmap</p>
+                  <p className="text-sm text-gray-500">Rollen</p>
+                  <p className="text-2xl font-bold">{Object.keys(membersByRole).length}</p>
+                  <p className="text-xs text-gray-500">verschiedene</p>
                 </div>
                 <div className="rounded-lg bg-blue-100 p-3">
-                  <FolderKanban className="h-6 w-6 text-blue-600" />
+                  <Briefcase className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -98,12 +185,12 @@ export default function TeamPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Zugewiesen</p>
-                  <p className="text-2xl font-bold text-green-600">{assignedProjects}</p>
-                  <p className="text-xs text-gray-500">Projekte mit Verantwortlichem</p>
+                  <p className="text-sm text-gray-500">Abteilungen</p>
+                  <p className="text-2xl font-bold">{departments.length}</p>
+                  <p className="text-xs text-gray-500">vertreten</p>
                 </div>
                 <div className="rounded-lg bg-green-100 p-3">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  <Building className="h-6 w-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
@@ -113,12 +200,12 @@ export default function TeamPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Nicht zugewiesen</p>
-                  <p className="text-2xl font-bold text-yellow-600">{unassignedProjects}</p>
-                  <p className="text-xs text-gray-500">Projekte ohne Verantwortlichem</p>
+                  <p className="text-sm text-gray-500">Mit Kontakt</p>
+                  <p className="text-2xl font-bold">{teamMembers.filter((m) => m.email || m.phone).length}</p>
+                  <p className="text-xs text-gray-500">erreichbar</p>
                 </div>
-                <div className="rounded-lg bg-yellow-100 p-3">
-                  <Clock className="h-6 w-6 text-yellow-600" />
+                <div className="rounded-lg bg-purple-100 p-3">
+                  <Mail className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
@@ -127,135 +214,109 @@ export default function TeamPage() {
 
         {/* Add Member Button */}
         <div className="mb-6 flex justify-end">
-          <Button onClick={() => setShowAddModal(true)}>
+          <Button onClick={openAddModal}>
             <UserPlus className="mr-2 h-4 w-4" />
             Mitarbeiter hinzufügen
           </Button>
         </div>
 
-        {/* Team Members with Projects */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {teamMembers.map((member) => {
-            const memberProjects = getProjectsByAssignee(member.id)
-            const activeProjects = memberProjects.filter((p) => p.status !== 'abgeschlossen')
-            const completedProjects = memberProjects.filter((p) => p.status === 'abgeschlossen')
-
-            return (
-              <Card key={member.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-                        <User className="h-6 w-6 text-primary-600" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{member.name}</CardTitle>
-                        <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Briefcase className="h-3 w-3" />
-                            <span>{member.role}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Building className="h-3 w-3" />
-                            <span>{member.department}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">
-                      {memberProjects.length} Projekt{memberProjects.length !== 1 ? 'e' : ''}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {memberProjects.length > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-gray-500">Aktiv: <span className="font-medium text-blue-600">{activeProjects.length}</span></span>
-                        <span className="text-gray-500">Abgeschlossen: <span className="font-medium text-green-600">{completedProjects.length}</span></span>
-                      </div>
-                      <div className="space-y-2">
-                        {memberProjects.map((project) => (
-                          <Link
-                            key={project.id}
-                            href={`/roadmap/${project.id}`}
-                            className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50 hover:border-primary-200"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate">{project.name}</p>
-                              <div className="mt-1 flex items-center gap-2">
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig[project.status].color}`}>
-                                  {statusConfig[project.status].label}
-                                </span>
-                                {project.status !== 'abgeschlossen' && project.status !== 'geplant' && (
-                                  <span className="text-xs text-gray-500">{project.progress}%</span>
-                                )}
-                              </div>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border-2 border-dashed border-gray-200 p-4 text-center">
-                      <p className="text-sm text-gray-400">Keine Projekte zugewiesen</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {/* Unassigned Projects */}
-        {unassignedProjects > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-700">
-                <Clock className="h-5 w-5" />
-                Nicht zugewiesene Projekte
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {mockRoadmapItems
-                  .filter((p) => !p.assigneeId)
-                  .map((project) => (
-                    <Link
-                      key={project.id}
-                      href={`/roadmap/${project.id}`}
-                      className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 transition-colors hover:bg-yellow-100"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{project.name}</p>
-                        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig[project.status].color}`}>
-                          {statusConfig[project.status].label}
-                        </span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </Link>
-                  ))}
-              </div>
+        {/* Team Members */}
+        {teamMembers.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">Keine Teammitglieder</h4>
+              <p className="text-gray-500 mb-4">
+                Fügen Sie Teammitglieder hinzu, um die Projektbeteiligten zu erfassen.
+              </p>
+              <Button onClick={openAddModal}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Erstes Mitglied hinzufügen
+              </Button>
             </CardContent>
           </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {teamMembers.map((member) => (
+              <Card key={member.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
+                        <span className="text-sm font-medium text-primary-700">
+                          {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{member.name}</CardTitle>
+                        <p className="text-sm text-primary-600">{member.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openEditModal(member)}
+                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(member.id)}
+                        disabled={isDeleting === member.id}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isDeleting === member.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Building className="h-4 w-4 text-gray-400" />
+                      {member.department}
+                    </div>
+                    {member.email && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <a href={`mailto:${member.email}`} className="hover:text-primary-600 truncate">
+                          {member.email}
+                        </a>
+                      </div>
+                    )}
+                    {member.phone && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <a href={`tel:${member.phone}`} className="hover:text-primary-600">
+                          {member.phone}
+                        </a>
+                      </div>
+                    )}
+                    {member.moduleId && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Cpu className="h-4 w-4 text-gray-400" />
+                        <span className="truncate">{getModuleName(member.moduleId)}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Roles Overview */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Rollen-Übersicht</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              {['Projektleiter', 'KI Champion', 'Fachanwender', 'Admin'].map((role) => {
-                const members = teamMembers.filter((m) => m.role === role)
-                const totalProjectsForRole = members.reduce(
-                  (sum, m) => sum + getProjectsByAssignee(m.id).length,
-                  0
-                )
-
-                return (
+        {teamMembers.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Rollen-Übersicht</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4">
+                {Object.entries(membersByRole).map(([role, members]) => (
                   <div key={role} className="rounded-lg border border-gray-200 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-900">{role}</span>
@@ -265,86 +326,127 @@ export default function TeamPage() {
                       {members.map((m) => (
                         <p key={m.id} className="text-sm text-gray-600">{m.name}</p>
                       ))}
-                      {members.length === 0 && (
-                        <p className="text-sm text-gray-400">Keine Mitglieder</p>
-                      )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-400">
-                      {totalProjectsForRole} Projekt{totalProjectsForRole !== 1 ? 'e' : ''} zugewiesen
-                    </p>
                   </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Add Member Modal */}
-      {showAddModal && (
+      {/* Add/Edit Member Modal */}
+      {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Neuen Mitarbeiter hinzufügen</h2>
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold">
+                {editingMember ? 'Mitarbeiter bearbeiten' : 'Neuen Mitarbeiter hinzufügen'}
+              </h2>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={resetForm}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Name *</label>
                 <input
                   type="text"
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   placeholder="Max Mustermann"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Rolle</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Rolle *</label>
                 <select
-                  value={newMember.role}
-                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="">Rolle auswählen...</option>
-                  {roles.map((role) => (
+                  {ROLES.map((role) => (
                     <option key={role} value={role}>{role}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Abteilung</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Abteilung *</label>
                 <select
-                  value={newMember.department}
-                  onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="">Abteilung auswählen...</option>
-                  {departments.map((dept) => (
+                  {DEPARTMENTS.map((dept) => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Modul-Zuordnung (optional)</label>
+                <select
+                  value={formData.moduleId}
+                  onChange={(e) => setFormData({ ...formData, moduleId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">Kein Modul</option>
+                  {modules.map((module: any) => (
+                    <option key={module.id} value={module.id}>{module.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">E-Mail *</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="max@beispiel.de"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Telefon (optional)</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="+49 123 456789"
+                />
+              </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowAddModal(false)}>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <Button variant="outline" onClick={resetForm}>
                 Abbrechen
               </Button>
               <Button
-                onClick={handleAddMember}
-                disabled={!newMember.name || !newMember.role || !newMember.department}
+                onClick={handleSubmit}
+                disabled={isSaving || !formData.name || !formData.role || !formData.department || !formData.email}
               >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Hinzufügen
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Speichern...
+                  </>
+                ) : (
+                  <>
+                    {editingMember ? 'Speichern' : 'Hinzufügen'}
+                  </>
+                )}
               </Button>
             </div>
           </div>

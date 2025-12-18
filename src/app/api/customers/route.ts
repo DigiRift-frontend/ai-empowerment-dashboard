@@ -70,6 +70,33 @@ export async function POST(request: Request) {
       },
     })
 
+    // Create welcome message in customer's inbox
+    await prisma.adminMessage.create({
+      data: {
+        customerId: customer.id,
+        subject: 'Willkommen im AI Empowerment Programm!',
+        content: `Hallo ${body.name},
+
+herzlich willkommen bei uns! Wir freuen uns sehr, Sie als neuen Kunden begrüßen zu dürfen.
+
+Ihr persönlicher Bereich wird gerade für Sie eingerichtet. In Kürze finden Sie hier:
+
+• Ihre individuelle Roadmap mit allen geplanten Meilensteinen
+• Den aktuellen Fortschritt Ihrer KI-Projekte
+• Übersicht über Ihr Punktebudget und den Verbrauch
+• Schulungsangebote für Ihr Team
+
+Ihr persönlicher Ansprechpartner ${customer.advisor?.name || 'wird Ihnen in Kürze mitgeteilt'} steht Ihnen bei Fragen jederzeit zur Verfügung.
+
+Wir wünschen Ihnen einen erfolgreichen Start!
+
+Herzliche Grüße
+Ihr AI Empowerment Team`,
+        from: 'AI Empowerment Team',
+        read: false,
+      },
+    })
+
     return NextResponse.json(customer, { status: 201 })
   } catch (error) {
     console.error('Error creating customer:', error)

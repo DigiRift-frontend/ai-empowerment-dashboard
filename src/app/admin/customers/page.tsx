@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { useCustomers, createCustomer } from '@/hooks/use-customers'
+import { useAdvisors } from '@/hooks/use-advisors'
 import { Search, Plus, Filter, Eye, Edit, Package, Users, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -14,6 +15,7 @@ const tierConfig = {
 
 export default function CustomersPage() {
   const { customers, isLoading, mutate } = useCustomers()
+  const { advisors, isLoading: advisorsLoading } = useAdvisors()
   const [searchTerm, setSearchTerm] = useState('')
   const [tierFilter, setTierFilter] = useState<string>('alle')
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
@@ -25,8 +27,15 @@ export default function CustomersPage() {
     companyName: '',
     email: '',
     tier: 'M',
-    advisorId: 'advisor1',
+    advisorId: '',
   })
+
+  // Set default advisorId when advisors load
+  useEffect(() => {
+    if (advisors.length > 0 && !newCustomer.advisorId) {
+      setNewCustomer(prev => ({ ...prev, advisorId: advisors[0].id }))
+    }
+  }, [advisors, newCustomer.advisorId])
 
   const filteredCustomers = customers.filter((customer: any) => {
     const matchesSearch =
@@ -38,7 +47,7 @@ export default function CustomersPage() {
   })
 
   const handleCreateCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.companyName || !newCustomer.email) return
+    if (!newCustomer.name || !newCustomer.companyName || !newCustomer.email || !newCustomer.advisorId) return
 
     setIsCreating(true)
     try {
@@ -48,7 +57,14 @@ export default function CustomersPage() {
       })
       mutate()
       setShowNewCustomerModal(false)
-      setNewCustomer({ name: '', companyName: '', email: '', tier: 'M', advisorId: 'advisor1' })
+      // Reset form, keeping the first advisor as default
+      setNewCustomer({
+        name: '',
+        companyName: '',
+        email: '',
+        tier: 'M',
+        advisorId: advisors.length > 0 ? advisors[0].id : ''
+      })
     } catch (error) {
       console.error('Error creating customer:', error)
     } finally {
@@ -317,6 +333,30 @@ export default function CustomersPage() {
                     <option value="L">Paket L - 400 Punkte (8.900 €)</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Interner Ansprechpartner (Berater) *
+                  </label>
+                  <select
+                    value={newCustomer.advisorId}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, advisorId: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    required
+                  >
+                    {advisorsLoading ? (
+                      <option value="">Laden...</option>
+                    ) : advisors.length === 0 ? (
+                      <option value="">Keine Ansprechpartner</option>
+                    ) : (
+                      advisors.map((advisor: any) => (
+                        <option key={advisor.id} value={advisor.id}>
+                          {advisor.name} - {advisor.role}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
@@ -328,7 +368,7 @@ export default function CustomersPage() {
                 </button>
                 <button
                   onClick={handleCreateCustomer}
-                  disabled={isCreating || !newCustomer.name || !newCustomer.companyName || !newCustomer.email}
+                  disabled={isCreating || !newCustomer.name || !newCustomer.companyName || !newCustomer.email || !newCustomer.advisorId}
                   className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}

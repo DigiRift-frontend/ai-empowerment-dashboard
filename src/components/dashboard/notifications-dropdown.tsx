@@ -14,21 +14,39 @@ import {
   FlaskConical,
   X,
   ChevronRight,
+  Mail,
 } from 'lucide-react'
+
+interface AdminMessage {
+  id: string
+  subject: string
+  content: string
+  read: boolean
+  from: string
+  createdAt: string
+}
 
 interface NotificationsDropdownProps {
   notifications: Notification[]
+  messages?: AdminMessage[]
   onMarkAsRead?: (id: string) => void
   onMarkAllAsRead?: () => void
+  onMarkMessageAsRead?: (id: string) => void
 }
 
 export function NotificationsDropdown({
   notifications,
+  messages = [],
   onMarkAsRead,
   onMarkAllAsRead,
+  onMarkMessageAsRead,
 }: NotificationsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const [activeTab, setActiveTab] = useState<'all' | 'notifications' | 'messages'>('all')
+
+  const unreadNotifications = notifications.filter((n) => !n.read).length
+  const unreadMessages = messages.filter((m) => !m.read).length
+  const unreadCount = unreadNotifications + unreadMessages
 
   const getIcon = (type: Notification['type']) => {
     switch (type) {
@@ -131,46 +149,155 @@ export function NotificationsDropdown({
               </div>
             </div>
 
-            {/* Notifications List */}
+            {/* Tabs */}
+            <div className="flex border-b border-gray-100">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'all'
+                    ? 'border-b-2 border-primary-500 text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Alle
+                {unreadCount > 0 && (
+                  <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'notifications'
+                    ? 'border-b-2 border-primary-500 text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Updates
+                {unreadNotifications > 0 && (
+                  <span className="ml-1.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'messages'
+                    ? 'border-b-2 border-primary-500 text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Nachrichten
+                {unreadMessages > 0 && (
+                  <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                    {unreadMessages}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Content List */}
             <div className="max-h-96 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {/* Notifications */}
+              {(activeTab === 'all' || activeTab === 'notifications') && notifications.length > 0 && (
+                <>
+                  {activeTab === 'all' && notifications.length > 0 && messages.length > 0 && (
+                    <div className="bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
+                      Updates
+                    </div>
+                  )}
+                  {notifications.map((notification) => (
+                    <Link
+                      key={notification.id}
+                      href={notification.relatedUrl || '#'}
+                      onClick={() => {
+                        onMarkAsRead?.(notification.id)
+                        setIsOpen(false)
+                      }}
+                      className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
+                        !notification.read ? 'bg-blue-50/50' : ''
+                      }`}
+                    >
+                      <div className={`shrink-0 rounded-lg p-2 ${getTypeColor(notification.type)}`}>
+                        {getIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                            {notification.title}
+                          </p>
+                          {getActionBadge(notification.type, notification.actionRequired)}
+                        </div>
+                        <p className="mt-0.5 text-sm text-gray-600 line-clamp-2">
+                          {notification.message}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {formatDate(notification.createdAt)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {/* Messages */}
+              {(activeTab === 'all' || activeTab === 'messages') && messages.length > 0 && (
+                <>
+                  {activeTab === 'all' && notifications.length > 0 && messages.length > 0 && (
+                    <div className="bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
+                      Nachrichten
+                    </div>
+                  )}
+                  {messages.map((message) => (
+                    <Link
+                      key={message.id}
+                      href="/messages"
+                      onClick={() => {
+                        onMarkMessageAsRead?.(message.id)
+                        setIsOpen(false)
+                      }}
+                      className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
+                        !message.read ? 'bg-blue-50/50' : ''
+                      }`}
+                    >
+                      <div className={`shrink-0 rounded-lg p-2 ${message.read ? 'bg-gray-100' : 'bg-blue-100'}`}>
+                        <Mail className={`h-4 w-4 ${message.read ? 'text-gray-500' : 'text-blue-600'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                            {message.subject}
+                          </p>
+                          {!message.read && (
+                            <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                              Neu
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Von: {message.from}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {formatDate(message.createdAt)}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {/* Empty state */}
+              {((activeTab === 'all' && notifications.length === 0 && messages.length === 0) ||
+                (activeTab === 'notifications' && notifications.length === 0) ||
+                (activeTab === 'messages' && messages.length === 0)) && (
                 <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                   <Bell className="mb-2 h-8 w-8 text-gray-300" />
-                  <p>Keine Benachrichtigungen</p>
+                  <p>Keine {activeTab === 'messages' ? 'Nachrichten' : activeTab === 'notifications' ? 'Updates' : 'Benachrichtigungen'}</p>
                 </div>
-              ) : (
-                notifications.map((notification) => (
-                  <Link
-                    key={notification.id}
-                    href={notification.relatedUrl || '#'}
-                    onClick={() => {
-                      onMarkAsRead?.(notification.id)
-                      setIsOpen(false)
-                    }}
-                    className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
-                      !notification.read ? 'bg-blue-50/50' : ''
-                    }`}
-                  >
-                    <div className={`shrink-0 rounded-lg p-2 ${getTypeColor(notification.type)}`}>
-                      {getIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
-                          {notification.title}
-                        </p>
-                        {getActionBadge(notification.type, notification.actionRequired)}
-                      </div>
-                      <p className="mt-0.5 text-sm text-gray-600 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {formatDate(notification.createdAt)}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
-                  </Link>
-                ))
               )}
             </div>
 

@@ -24,6 +24,7 @@ enum PointCategory {
   schulung
   beratung
   analyse
+  kommunikation
 }
 
 enum ExternalCostType {
@@ -106,10 +107,13 @@ model Membership {
   id                String         @id @default(cuid())
   tier              MembershipTier
   monthlyPoints     Int
-  usedPoints        Int            @default(0)
-  remainingPoints   Int
+  usedPoints        Float          @default(0)
+  remainingPoints   Float
+  bonusPoints       Float          @default(0) // Extra-Punkte gutgeschrieben
   monthlyPrice      Float
+  discountPercent   Float          @default(0) // Rabatt in Prozent (z.B. 10 = 10%)
   contractStart     DateTime
+  contractEnd       DateTime?      // Vertragsende (optional)
   periodStart       DateTime
   periodEnd         DateTime
   // Übertragene Punkte
@@ -124,11 +128,12 @@ model Membership {
 
 // Kunde
 model Customer {
-  id           String @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
   companyName  String
-  email        String @unique
-  customerCode String @unique // 4-stelliger Code
+  email        String  @unique
+  customerCode String  @unique // 6-stelliger PIN-Code
+  password     String? // Generiertes Passwort (Klartext für Demo, in Produktion hashen!)
 
   membershipId String     @unique
   membership   Membership @relation(fields: [membershipId], references: [id])
@@ -150,6 +155,25 @@ model Customer {
   adminMessages         AdminMessage[]
   schulungAssignments   CustomerSchulungAssignment[]
   customerRoadmapItems  CustomerRoadmapItem[]
+  teamMembers           CustomerTeamMember[]
+}
+
+// Kunden-Teammitglieder (Personen auf Kundenseite)
+model CustomerTeamMember {
+  id         String  @id @default(cuid())
+  name       String
+  role       String  // z.B. Projektleiter, KI Champion, Fachanwender, Admin, Sonstige
+  department String  // z.B. IT, Vertrieb, Marketing, Operations, Sonstige
+  email      String
+  phone      String?
+  moduleId   String? // Zuordnung zu einem Modul
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  module     Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Punkt-Transaktionen
@@ -157,7 +181,7 @@ model PointTransaction {
   id          String        @id @default(cuid())
   date        DateTime
   description String
-  points      Int
+  points      Float
   category    PointCategory
 
   customerId String
@@ -240,12 +264,13 @@ model Module {
   assigneeId String?
   assignee   TeamMember? @relation(fields: [assigneeId], references: [id])
 
-  acceptanceCriteria AcceptanceCriterion[]
-  testFeedback       TestFeedback[]
-  historyEntries     ModuleHistoryEntry[]
-  milestones         Milestone[]
-  pointTransactions  PointTransaction[]
+  acceptanceCriteria   AcceptanceCriterion[]
+  testFeedback         TestFeedback[]
+  historyEntries       ModuleHistoryEntry[]
+  milestones           Milestone[]
+  pointTransactions    PointTransaction[]
   customerRoadmapItems CustomerRoadmapItem[]
+  customerTeamMembers  CustomerTeamMember[]
 }
 
 // Akzeptanzkriterien

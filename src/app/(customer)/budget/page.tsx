@@ -1,39 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { PointsDonut } from '@/components/dashboard/points-donut'
 import { MonthlyChart } from '@/components/dashboard/monthly-chart'
-import {
-  mockCustomer,
-  mockPointTransactions,
-  mockMonthlySummaries,
-  mockModules,
-  getPointsByCategory,
-} from '@/lib/mock-data'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
 import { formatNumber, formatDate } from '@/lib/utils'
 import {
   Coins,
   TrendingUp,
   TrendingDown,
-  Filter,
   Cpu,
   Wrench,
   Code,
   GraduationCap,
   MessageSquare,
   ClipboardList,
-  Calendar,
+  Loader2,
+  Phone,
 } from 'lucide-react'
 import { PointCategory } from '@/types'
 
 type FilterType = 'alle' | PointCategory
 
-// Verfügbare Monate für Filter
 const availableMonths = [
   { value: 'alle', label: 'Alle Monate' },
   { value: '2024-12', label: 'Dezember 2024' },
@@ -44,31 +37,76 @@ const availableMonths = [
   { value: '2024-07', label: 'Juli 2024' },
 ]
 
+const categoryConfig = {
+  entwicklung: { label: 'Entwicklung', color: 'bg-blue-500', bgColor: 'bg-blue-50', textColor: 'text-blue-600', icon: Code },
+  wartung: { label: 'Wartung', color: 'bg-green-500', bgColor: 'bg-green-50', textColor: 'text-green-600', icon: Wrench },
+  schulung: { label: 'Schulung', color: 'bg-yellow-500', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600', icon: GraduationCap },
+  beratung: { label: 'Beratung', color: 'bg-purple-500', bgColor: 'bg-purple-50', textColor: 'text-purple-600', icon: MessageSquare },
+  analyse: { label: 'Analyse & PM', color: 'bg-orange-500', bgColor: 'bg-orange-50', textColor: 'text-orange-600', icon: ClipboardList },
+  kommunikation: { label: 'Kommunikation', color: 'bg-pink-500', bgColor: 'bg-pink-50', textColor: 'text-pink-600', icon: Phone },
+}
+
 export default function BudgetPage() {
+  const { customerId } = useAuth()
+  const { customer, isLoading } = useCustomer(customerId || '')
   const [categoryFilter, setCategoryFilter] = useState<FilterType>('alle')
   const [monthFilter, setMonthFilter] = useState<string>('alle')
-  const membership = mockCustomer.membership
-  const pointsByCategory = getPointsByCategory()
+
+  // Calculate points by category from transactions
+  const pointsByCategory = useMemo(() => {
+    if (!customer?.pointTransactions) return { entwicklung: 0, wartung: 0, schulung: 0, beratung: 0, analyse: 0 }
+
+    return customer.pointTransactions.reduce((acc: Record<string, number>, t: any) => {
+      acc[t.category] = (acc[t.category] || 0) + t.points
+      return acc
+    }, { entwicklung: 0, wartung: 0, schulung: 0, beratung: 0, analyse: 0 })
+  }, [customer?.pointTransactions])
+
+  // Calculate monthly summaries from transactions
+  const monthlySummaries = useMemo(() => {
+    if (!customer?.pointTransactions) return []
+
+    const summaryMap = new Map<string, { entwicklung: number; wartung: number; schulung: number; total: number }>()
+
+    customer.pointTransactions.forEach((t: any) => {
+      const month = new Date(t.date).toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+      const existing = summaryMap.get(month) || { entwicklung: 0, wartung: 0, schulung: 0, total: 0 }
+
+      if (t.category === 'entwicklung') existing.entwicklung += t.points
+      else if (t.category === 'wartung') existing.wartung += t.points
+      else if (t.category === 'schulung') existing.schulung += t.points
+      existing.total += t.points
+
+      summaryMap.set(month, existing)
+    })
+
+    return Array.from(summaryMap.entries()).map(([month, data]) => ({ month, ...data })).slice(-6)
+  }, [customer?.pointTransactions])
+
+  if (isLoading || !customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  const membership = customer.membership
+  const modules = customer.modules || []
+  const transactions = customer.pointTransactions || []
   const percentUsed = Math.round((membership.usedPoints / membership.monthlyPoints) * 100)
 
   // Monatliche Wartungskosten
-  const maintenanceModules = mockModules.filter(m => m.status === 'abgeschlossen')
-  const totalMaintenancePoints = maintenanceModules.reduce((sum, m) => sum + m.monthlyMaintenancePoints, 0)
+  const maintenanceModules = modules.filter((m: any) => m.status === 'abgeschlossen')
+  const totalMaintenancePoints = maintenanceModules.reduce((sum: number, m: any) => sum + m.monthlyMaintenancePoints, 0)
 
   // Gefilterte Transaktionen
-  const filteredTransactions = mockPointTransactions.filter(t => {
+  const filteredTransactions = transactions.filter((t: any) => {
     const matchesCategory = categoryFilter === 'alle' || t.category === categoryFilter
-    const matchesMonth = monthFilter === 'alle' || t.date.startsWith(monthFilter)
+    const transactionMonth = new Date(t.date).toISOString().substring(0, 7)
+    const matchesMonth = monthFilter === 'alle' || transactionMonth === monthFilter
     return matchesCategory && matchesMonth
   })
-
-  const categoryConfig = {
-    entwicklung: { label: 'Entwicklung', color: 'bg-blue-500', bgColor: 'bg-blue-50', textColor: 'text-blue-600', icon: Code },
-    wartung: { label: 'Wartung', color: 'bg-green-500', bgColor: 'bg-green-50', textColor: 'text-green-600', icon: Wrench },
-    schulung: { label: 'Schulung', color: 'bg-yellow-500', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600', icon: GraduationCap },
-    beratung: { label: 'Beratung', color: 'bg-purple-500', bgColor: 'bg-purple-50', textColor: 'text-purple-600', icon: MessageSquare },
-    analyse: { label: 'Analyse & PM', color: 'bg-orange-500', bgColor: 'bg-orange-50', textColor: 'text-orange-600', icon: ClipboardList },
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -185,22 +223,28 @@ export default function BudgetPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {maintenanceModules.map((mod) => (
-                    <div key={mod.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 rounded-full bg-green-500" />
-                        <div>
-                          <p className="font-medium text-gray-900">{mod.name}</p>
-                          <p className="text-xs text-gray-500">Live</p>
+                  {maintenanceModules.length === 0 ? (
+                    <p className="text-gray-500 text-sm py-4">Keine aktiven Module</p>
+                  ) : (
+                    <>
+                      {maintenanceModules.map((mod: any) => (
+                        <div key={mod.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <div>
+                              <p className="font-medium text-gray-900">{mod.name}</p>
+                              <p className="text-xs text-gray-500">Live</p>
+                            </div>
+                          </div>
+                          <span className="font-semibold text-gray-900">{mod.monthlyMaintenancePoints} Pkt.</span>
                         </div>
+                      ))}
+                      <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                        <span className="font-medium text-gray-700">Gesamt Wartung</span>
+                        <span className="text-lg font-bold text-primary-600">{totalMaintenancePoints} Pkt./Monat</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{mod.monthlyMaintenancePoints} Pkt.</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                    <span className="font-medium text-gray-700">Gesamt Wartung</span>
-                    <span className="text-lg font-bold text-primary-600">{totalMaintenancePoints} Pkt./Monat</span>
-                  </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -211,7 +255,7 @@ export default function BudgetPage() {
                 <CardTitle>Verlauf der letzten 6 Monate</CardTitle>
               </CardHeader>
               <CardContent>
-                <MonthlyChart data={mockMonthlySummaries} />
+                <MonthlyChart data={monthlySummaries} />
               </CardContent>
             </Card>
 
@@ -252,10 +296,10 @@ export default function BudgetPage() {
                   {filteredTransactions.length === 0 ? (
                     <p className="text-center text-gray-500 py-4">Keine Buchungen in dieser Kategorie</p>
                   ) : (
-                    filteredTransactions.map((transaction) => {
-                      const config = categoryConfig[transaction.category]
-                      const Icon = config.icon
-                      const relatedModule = transaction.moduleId ? mockModules.find(m => m.id === transaction.moduleId) : null
+                    filteredTransactions.map((transaction: any) => {
+                      const config = categoryConfig[transaction.category as keyof typeof categoryConfig]
+                      const Icon = config?.icon || Code
+                      const relatedModule = transaction.moduleId ? modules.find((m: any) => m.id === transaction.moduleId) : null
 
                       return (
                         <div
@@ -263,8 +307,8 @@ export default function BudgetPage() {
                           className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50"
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`rounded-lg ${config.bgColor} p-2`}>
-                              <Icon className={`h-4 w-4 ${config.textColor}`} />
+                            <div className={`rounded-lg ${config?.bgColor || 'bg-gray-50'} p-2`}>
+                              <Icon className={`h-4 w-4 ${config?.textColor || 'text-gray-600'}`} />
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">{transaction.description}</p>
@@ -280,7 +324,7 @@ export default function BudgetPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">-{transaction.points} Pkt.</p>
-                            <p className={`text-xs ${config.textColor}`}>{config.label}</p>
+                            <p className={`text-xs ${config?.textColor || 'text-gray-600'}`}>{config?.label || 'Sonstig'}</p>
                           </div>
                         </div>
                       )
@@ -309,7 +353,7 @@ export default function BudgetPage() {
             </Card>
 
             {/* Carried Over Points */}
-            {membership.carriedOverPoints && (membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3 > 0) && (
+            {(membership.carriedOverMonth1 + membership.carriedOverMonth2 + membership.carriedOverMonth3 > 0) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Übertragene Punkte</CardTitle>
@@ -319,14 +363,14 @@ export default function BudgetPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Gesamt übertragen</span>
                       <span className="font-semibold text-gray-900">
-                        {membership.carriedOverPoints.month1 + membership.carriedOverPoints.month2 + membership.carriedOverPoints.month3} Pkt.
+                        {membership.carriedOverMonth1 + membership.carriedOverMonth2 + membership.carriedOverMonth3} Pkt.
                       </span>
                     </div>
-                    {membership.carriedOverPoints.month1 > 0 && (
+                    {membership.carriedOverMonth1 > 0 && (
                       <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-orange-700">Verfallen bald</span>
-                          <span className="font-semibold text-orange-700">{membership.carriedOverPoints.month1} Pkt.</span>
+                          <span className="font-semibold text-orange-700">{membership.carriedOverMonth1} Pkt.</span>
                         </div>
                         <p className="text-xs text-orange-600 mt-1">Ende nächsten Monat</p>
                       </div>

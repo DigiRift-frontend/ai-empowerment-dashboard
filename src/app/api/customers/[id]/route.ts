@@ -53,6 +53,11 @@ export async function GET(
             createdAt: 'desc',
           },
         },
+        adminMessages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
         schulungAssignments: {
           include: {
             schulung: true,
@@ -68,6 +73,11 @@ export async function GET(
                 },
               },
             },
+          },
+        },
+        teamMembers: {
+          orderBy: {
+            name: 'asc',
           },
         },
       },

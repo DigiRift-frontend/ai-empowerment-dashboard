@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { mockRoadmapItems, mockCustomer, getPendingAcceptanceCount, getTeamMemberById } from '@/lib/mock-data'
-import { formatDate, formatNumber } from '@/lib/utils'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
+import { formatDate } from '@/lib/utils'
 import {
   Map,
   Calendar,
@@ -24,28 +25,20 @@ import {
   Download,
   User,
   FlaskConical,
+  Loader2,
 } from 'lucide-react'
-import { RoadmapStatus } from '@/types'
+import { ModuleStatus } from '@/types'
 
 export default function RoadmapPage() {
+  const { customerId } = useAuth()
+  const { customer, isLoading } = useCustomer(customerId || '')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'hoch' | 'mittel' | 'niedrig'>('all')
 
-  const filteredItems = priorityFilter === 'all'
-    ? mockRoadmapItems
-    : mockRoadmapItems.filter((item) => item.priority === priorityFilter)
-
-  const itemsByStatus = {
-    geplant: filteredItems.filter((item) => item.status === 'geplant'),
-    'in-arbeit': filteredItems.filter((item) => item.status === 'in-arbeit'),
-    'im-test': filteredItems.filter((item) => item.status === 'im-test'),
-    abgeschlossen: filteredItems.filter((item) => item.status === 'abgeschlossen'),
-  }
-
   const statusConfig = {
     geplant: { label: 'Geplant', color: 'bg-gray-100', textColor: 'text-gray-600', icon: Calendar },
-    'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100', textColor: 'text-blue-600', icon: Clock },
-    'im-test': { label: 'Im Test', color: 'bg-purple-100', textColor: 'text-purple-600', icon: FlaskConical },
+    in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100', textColor: 'text-blue-600', icon: Clock },
+    im_test: { label: 'Im Test', color: 'bg-purple-100', textColor: 'text-purple-600', icon: FlaskConical },
     abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100', textColor: 'text-green-600', icon: CheckCircle2 },
   }
 
@@ -61,36 +54,70 @@ export default function RoadmapPage() {
     abgelehnt: { label: 'Abgelehnt', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
   }
 
-  const totalProgress = Math.round(
-    mockRoadmapItems.reduce((sum, item) => sum + item.progress, 0) / mockRoadmapItems.length
-  )
+  // Get roadmap items from modules
+  const roadmapItems = useMemo(() => {
+    if (!customer?.modules) return []
+    return customer.modules
+      .filter((m: any) => m.showInRoadmap !== false)
+      .sort((a: any, b: any) => (a.roadmapOrder || 0) - (b.roadmapOrder || 0))
+  }, [customer?.modules])
 
-  const pendingCount = getPendingAcceptanceCount()
+  const filteredItems = useMemo(() => {
+    return priorityFilter === 'all'
+      ? roadmapItems
+      : roadmapItems.filter((item: any) => item.priority === priorityFilter)
+  }, [roadmapItems, priorityFilter])
+
+  const itemsByStatus = useMemo(() => ({
+    geplant: filteredItems.filter((item: any) => item.status === 'geplant'),
+    in_arbeit: filteredItems.filter((item: any) => item.status === 'in_arbeit'),
+    im_test: filteredItems.filter((item: any) => item.status === 'im_test'),
+    abgeschlossen: filteredItems.filter((item: any) => item.status === 'abgeschlossen'),
+  }), [filteredItems])
+
+  const totalProgress = useMemo(() => {
+    if (roadmapItems.length === 0) return 0
+    return Math.round(
+      roadmapItems.reduce((sum: number, item: any) => sum + (item.progress || 0), 0) / roadmapItems.length
+    )
+  }, [roadmapItems])
+
+  const pendingCount = useMemo(() => {
+    return roadmapItems.filter((item: any) => item.acceptanceStatus === 'ausstehend').length
+  }, [roadmapItems])
+
+  if (isLoading || !customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
 
   const exportRoadmapPDF = () => {
     const content = `
 AI EMPOWERMENT PROGRAMM - ROADMAP ÜBERSICHT
 ============================================
 
-Kunde: ${mockCustomer.companyName}
+Kunde: ${customer.companyName}
 Erstellt: ${formatDate(new Date().toISOString())}
 Gesamtfortschritt: ${totalProgress}%
 
 ${'='.repeat(50)}
 
-${mockRoadmapItems.map((item) => `
+${roadmapItems.map((item: any) => `
 PROJEKT: ${item.name}
 ${'-'.repeat(40)}
 Beschreibung: ${item.description}
-Status: ${statusConfig[item.status].label}
-Priorität: ${priorityConfig[item.priority].label}
-Fortschritt: ${item.progress}%
+Status: ${statusConfig[item.status as keyof typeof statusConfig]?.label || item.status}
+Priorität: ${priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
+Fortschritt: ${item.progress || 0}%
 ${item.startDate ? `Startdatum: ${formatDate(item.startDate)}` : ''}
 ${item.targetDate ? `Zieldatum: ${formatDate(item.targetDate)}` : ''}
 Akzeptanzstatus: ${item.acceptanceStatus === 'akzeptiert' ? 'Akzeptiert' : 'Ausstehend'}
 
 Akzeptanzkriterien:
-${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\n') || '  Keine definiert'}
+${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.description}`).join('\n') || '  Keine definiert'}
 
 `).join('\n')}
     `.trim()
@@ -99,7 +126,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `Roadmap_${mockCustomer.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`
+    a.download = `Roadmap_${customer.companyName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -167,7 +194,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">In Arbeit</p>
-                  <p className="text-2xl font-bold text-blue-600">{itemsByStatus['in-arbeit'].length}</p>
+                  <p className="text-2xl font-bold text-blue-600">{itemsByStatus.in_arbeit.length}</p>
                 </div>
                 <div className="rounded-lg bg-blue-100 p-3">
                   <Clock className="h-6 w-6 text-blue-600" />
@@ -181,7 +208,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Im Test</p>
-                  <p className="text-2xl font-bold text-purple-600">{itemsByStatus['im-test'].length}</p>
+                  <p className="text-2xl font-bold text-purple-600">{itemsByStatus.im_test.length}</p>
                 </div>
                 <div className="rounded-lg bg-purple-100 p-3">
                   <FlaskConical className="h-6 w-6 text-purple-600" />
@@ -263,7 +290,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
         {/* Kanban View */}
         {viewMode === 'kanban' && (
           <div className="grid gap-6 lg:grid-cols-4">
-            {(['geplant', 'in-arbeit', 'im-test', 'abgeschlossen'] as RoadmapStatus[]).map((status) => {
+            {(['geplant', 'in_arbeit', 'im_test', 'abgeschlossen'] as ModuleStatus[]).map((status) => {
               const config = statusConfig[status]
               const StatusIcon = config.icon
               const items = itemsByStatus[status]
@@ -279,9 +306,8 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                   </div>
 
                   <div className="space-y-3">
-                    {items.map((item) => {
-                      const acceptanceInfo = item.acceptanceStatus ? acceptanceConfig[item.acceptanceStatus] : null
-                      const isInTest = item.status === 'im-test'
+                    {items.map((item: any) => {
+                      const isInTest = item.status === 'im_test'
 
                       return (
                         <Link key={item.id} href={`/roadmap/${item.id}`}>
@@ -303,17 +329,17 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
 
                               <div className="mb-2 flex items-start justify-between">
                                 <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
-                                  {priorityConfig[item.priority].label}
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
+                                  {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
                                 </span>
                               </div>
                               <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
 
                               {/* Assignee */}
-                              {item.assigneeId && (
+                              {item.assignee && (
                                 <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
                                   <User className="h-3 w-3" />
-                                  <span>{getTeamMemberById(item.assigneeId)?.name}</span>
+                                  <span>{item.assignee.name}</span>
                                 </div>
                               )}
 
@@ -329,9 +355,9 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                                 <div className="mb-3">
                                   <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
                                     <span>Fortschritt</span>
-                                    <span>{item.progress}%</span>
+                                    <span>{item.progress || 0}%</span>
                                   </div>
-                                  <Progress value={item.progress} size="sm" />
+                                  <Progress value={item.progress || 0} size="sm" />
                                 </div>
                               )}
 
@@ -364,8 +390,8 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-200">
-                {filteredItems.map((item) => {
-                  const config = statusConfig[item.status]
+                {filteredItems.map((item: any) => {
+                  const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
                   const StatusIcon = config.icon
 
                   return (
@@ -378,10 +404,10 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium text-gray-900">{item.name}</h4>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
-                              {priorityConfig[item.priority].label}
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
+                              {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
                             </span>
-                            <Badge variant={item.status === 'abgeschlossen' ? 'success' : item.status === 'in-arbeit' ? 'default' : 'secondary'}>
+                            <Badge variant={item.status === 'abgeschlossen' ? 'success' : item.status === 'in_arbeit' ? 'default' : 'secondary'}>
                               {config.label}
                             </Badge>
                             {item.acceptanceStatus === 'ausstehend' && (
@@ -392,16 +418,16 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                             )}
                           </div>
                           <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                          {item.assigneeId && (
+                          {item.assignee && (
                             <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                               <User className="h-3 w-3" />
-                              <span>{getTeamMemberById(item.assigneeId)?.name}</span>
+                              <span>{item.assignee.name}</span>
                             </div>
                           )}
                         </div>
 
                         <div className="w-32">
-                          <Progress value={item.progress} size="sm" showLabel />
+                          <Progress value={item.progress || 0} size="sm" showLabel />
                         </div>
 
                         {item.targetDate && (
@@ -431,15 +457,15 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
               <div className="absolute left-4 top-0 h-full w-0.5 bg-gray-200" />
 
               <div className="space-y-6">
-                {mockRoadmapItems
-                  .filter((item) => item.targetDate || item.completedDate)
-                  .sort((a, b) => {
+                {roadmapItems
+                  .filter((item: any) => item.targetDate || item.completedDate)
+                  .sort((a: any, b: any) => {
                     const dateA = new Date(a.completedDate || a.targetDate || '')
                     const dateB = new Date(b.completedDate || b.targetDate || '')
                     return dateB.getTime() - dateA.getTime()
                   })
-                  .map((item) => {
-                    const config = statusConfig[item.status]
+                  .map((item: any) => {
+                    const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
                     const StatusIcon = config.icon
                     const date = item.completedDate || item.targetDate
 
@@ -464,7 +490,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                             </div>
                             <p className="mt-1 text-sm text-gray-600">{item.description}</p>
                             {item.status !== 'geplant' && (
-                              <Progress value={item.progress} size="sm" className="mt-2" />
+                              <Progress value={item.progress || 0} size="sm" className="mt-2" />
                             )}
                           </div>
                         </div>

@@ -5,6 +5,9 @@ import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
+import { formatDate } from '@/lib/utils'
 import {
   GraduationCap,
   ChevronDown,
@@ -25,6 +28,10 @@ import {
   Rocket,
   TrendingUp,
   BookOpen,
+  Calendar,
+  Clock,
+  Loader2,
+  Users,
 } from 'lucide-react'
 
 const schulungsKategorien = [
@@ -177,6 +184,8 @@ const lernpfade = [
 ]
 
 export default function SchulungenPage() {
+  const { customerId } = useAuth()
+  const { customer, isLoading } = useCustomer(customerId || '')
   const [expandedCategory, setExpandedCategory] = useState<string | null>('A')
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [formSubmitted, setFormSubmitted] = useState(false)
@@ -199,6 +208,19 @@ export default function SchulungenPage() {
     }, 2000)
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  const workshops = customer?.workshops || []
+  const schulungAssignments = customer?.schulungAssignments || []
+  const upcomingWorkshops = workshops.filter((w: any) => new Date(w.date) >= new Date())
+  const pastWorkshops = workshops.filter((w: any) => new Date(w.date) < new Date())
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -208,6 +230,100 @@ export default function SchulungenPage() {
 
       <div className="p-6">
         <div className="mx-auto max-w-4xl">
+          {/* Upcoming Workshops */}
+          {upcomingWorkshops.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary-600" />
+                  Kommende Schulungen
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {upcomingWorkshops.map((workshop: any) => (
+                    <div
+                      key={workshop.id}
+                      className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 p-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="rounded-lg bg-primary-100 p-3">
+                          <GraduationCap className="h-5 w-5 text-primary-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{workshop.topic}</p>
+                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {formatDate(workshop.date)}
+                            </span>
+                            {workshop.duration && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {workshop.duration} Min.
+                              </span>
+                            )}
+                            {workshop.participants && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3.5 w-3.5" />
+                                {workshop.participants} Teilnehmer
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="default">Geplant</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Past Workshops */}
+          {pastWorkshops.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  Abgeschlossene Schulungen
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pastWorkshops.slice(0, 5).map((workshop: any) => (
+                    <div
+                      key={workshop.id}
+                      className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="rounded-lg bg-green-100 p-3">
+                          <GraduationCap className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{workshop.topic}</p>
+                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {formatDate(workshop.date)}
+                            </span>
+                            {workshop.participants && (
+                              <span className="flex items-center gap-1">
+                                <Users className="h-3.5 w-3.5" />
+                                {workshop.participants} Teilnehmer
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="success">Abgeschlossen</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Hero Section */}
           <Card className="mb-8 overflow-hidden">
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-8 text-white">

@@ -1,23 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AdminHeader } from '@/components/admin/admin-header'
 import {
-  getCustomerById,
-  getCustomerModules,
-  getCustomerTransactions,
-  getCustomerMessages,
   mockAdminTeamMembers,
   mockCustomerRoadmaps,
   schulungskatalog,
   schulungSerien,
-  getCustomerSchulungAssignments,
   moduleTemplates,
   AdminMessage,
 } from '@/lib/admin-mock-data'
 import { KanbanBoard } from '@/components/admin/kanban-board'
+import { TeamTab } from '@/components/admin/team-tab'
 import { Module, AcceptanceCriterion, ModuleStatus, CustomerRoadmapItem, Schulung, SchulungSerie, CustomerSchulungAssignment, ModuleTemplate } from '@/types'
+import { useCustomer, updateMembership, updateCustomer } from '@/hooks/use-customers'
+import { useTeam } from '@/hooks/use-team'
+import { useAdvisors } from '@/hooks/use-advisors'
+import { Loader2, Pencil, Users as UsersIcon } from 'lucide-react'
 import {
   ArrowLeft,
   Package,
@@ -31,6 +31,7 @@ import {
   AlertCircle,
   Key,
   Mail,
+  Phone,
   Copy,
   CheckCircle2,
   Circle,
@@ -48,7 +49,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-type Tab = 'overview' | 'points' | 'modules' | 'schulungen' | 'roadmap' | 'messages'
+type Tab = 'overview' | 'points' | 'modules' | 'schulungen' | 'roadmap' | 'messages' | 'team'
 type ModuleViewMode = 'kanban' | 'overview'
 
 const tierConfig = {
@@ -77,11 +78,16 @@ const categoryConfig: Record<string, { label: string; color: string }> = {
   schulung: { label: 'Schulung', color: 'bg-yellow-100 text-yellow-700' },
   beratung: { label: 'Beratung', color: 'bg-purple-100 text-purple-700' },
   analyse: { label: 'Analyse & PM', color: 'bg-orange-100 text-orange-700' },
+  kommunikation: { label: 'Kommunikation', color: 'bg-pink-100 text-pink-700' },
 }
 
 export default function CustomerDetailPage() {
   const params = useParams()
   const customerId = params.id as string
+  const { customer, isLoading, isError, mutate } = useCustomer(customerId)
+  const { teamMembers: team } = useTeam()
+  const { advisors } = useAdvisors()
+
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showBookPointsModal, setShowBookPointsModal] = useState(false)
   const [showNewModuleModal, setShowNewModuleModal] = useState(false)
@@ -96,22 +102,97 @@ export default function CustomerDetailPage() {
   const [showAddSchulungModal, setShowAddSchulungModal] = useState(false)
   const [showAddModuleFromCatalogModal, setShowAddModuleFromCatalogModal] = useState(false)
 
-  const customer = getCustomerById(customerId)
-  const initialModules = getCustomerModules(customerId)
-  const transactions = getCustomerTransactions(customerId)
-  const messages = getCustomerMessages(customerId)
+  // Paket-Bearbeitung State
+  const [showEditPackageModal, setShowEditPackageModal] = useState(false)
+  const [editPackageData, setEditPackageData] = useState({
+    tier: '',
+    monthlyPoints: 0,
+    monthlyPrice: 0,
+    discountPercent: 0,
+    bonusPoints: 0,
+    contractStart: '',
+    contractEnd: '',
+  })
+  const [isSavingPackage, setIsSavingPackage] = useState(false)
+
+  // Credentials State
+  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false)
+  const [generatedCredential, setGeneratedCredential] = useState<{ type: string; value: string } | null>(null)
+
+  // Message State
+  const [newMessageSubject, setNewMessageSubject] = useState('')
+  const [newMessageContent, setNewMessageContent] = useState('')
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
+
+  // Book Points State
+  const [bookPointsData, setBookPointsData] = useState({
+    description: '',
+    points: '',
+    date: new Date().toISOString().split('T')[0],
+    category: 'entwicklung',
+    moduleId: '',
+  })
+  const [isBookingPoints, setIsBookingPoints] = useState(false)
+
+  // Edit Transaction State
+  const [editingTransaction, setEditingTransaction] = useState<{
+    id: string
+    description: string
+    points: string
+    date: string
+    category: string
+    moduleId: string
+  } | null>(null)
+  const [isEditingTransaction, setIsEditingTransaction] = useState(false)
+  const [isDeletingTransaction, setIsDeletingTransaction] = useState<string | null>(null)
+  const [isDeletingMessage, setIsDeletingMessage] = useState<string | null>(null)
+
+  // Get data from API response
+  const apiModules = customer?.modules || []
+  const transactions = customer?.pointTransactions || []
+  // Map adminMessages to the expected format
+  const messages: AdminMessage[] = (customer?.adminMessages || []).map((msg: any) => ({
+    id: msg.id,
+    subject: msg.subject,
+    content: msg.content,
+    read: msg.read,
+    actionRequired: false, // AdminMessage doesn't have this field
+    sentAt: msg.createdAt,
+    sentBy: msg.from,
+  }))
   const customerRoadmap = mockCustomerRoadmaps[customerId]
-  const initialSchulungAssignments = getCustomerSchulungAssignments(customerId)
+  const initialSchulungAssignments = customer?.schulungAssignments || []
 
-  const [customerModules, setCustomerModules] = useState<Module[]>(initialModules)
-  const [roadmapItems, setRoadmapItems] = useState<CustomerRoadmapItem[]>(
-    customerRoadmap?.items || []
-  )
-  const [schulungAssignments, setSchulungAssignments] = useState<CustomerSchulungAssignment[]>(
-    initialSchulungAssignments
-  )
+  const [customerModules, setCustomerModules] = useState<Module[]>([])
+  const [roadmapItems, setRoadmapItems] = useState<CustomerRoadmapItem[]>([])
+  const [schulungAssignments, setSchulungAssignments] = useState<CustomerSchulungAssignment[]>([])
 
-  if (!customer) {
+  // Update state when customer data loads
+  useEffect(() => {
+    if (customer) {
+      // Map API modules to expected format (status with underscores -> hyphens for display)
+      const mappedModules = apiModules.map((m: any) => ({
+        ...m,
+        status: m.status.replace(/_/g, '-') as ModuleStatus,
+      }))
+      setCustomerModules(mappedModules)
+      setRoadmapItems(customerRoadmap?.items || [])
+      setSchulungAssignments(initialSchulungAssignments)
+    }
+  }, [customer, apiModules, customerRoadmap, initialSchulungAssignments])
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <AdminHeader title="Laden..." />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      </div>
+    )
+  }
+
+  if (isError || !customer) {
     return (
       <div className="flex flex-col h-screen">
         <AdminHeader title="Kunde nicht gefunden" />
@@ -133,8 +214,150 @@ export default function CustomerDetailPage() {
     { id: 'modules' as Tab, label: 'Module', icon: Cpu },
     { id: 'schulungen' as Tab, label: 'Schulungen', icon: GraduationCap },
     { id: 'roadmap' as Tab, label: 'Roadmap', icon: Map },
+    { id: 'team' as Tab, label: 'Teammitglieder', icon: UsersIcon },
     { id: 'messages' as Tab, label: 'Nachrichten', icon: MessageSquare },
   ]
+
+  // Send message handler
+  const handleSendMessage = async () => {
+    console.log('handleSendMessage called', { newMessageSubject, newMessageContent })
+    if (!newMessageSubject.trim() || !newMessageContent.trim()) {
+      console.log('Validation failed - empty fields')
+      return
+    }
+
+    setIsSendingMessage(true)
+    console.log('Sending message...')
+    try {
+      await fetch(`/api/customers/${customerId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: newMessageSubject,
+          content: newMessageContent,
+          from: 'Admin',
+        }),
+      })
+      setNewMessageSubject('')
+      setNewMessageContent('')
+      mutate() // Refresh customer data to show new message
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
+      setIsSendingMessage(false)
+    }
+  }
+
+  // Book points handler
+  const handleBookPoints = async () => {
+    if (!bookPointsData.description || !bookPointsData.points || !bookPointsData.date || !bookPointsData.category) {
+      return
+    }
+
+    setIsBookingPoints(true)
+    try {
+      await fetch(`/api/customers/${customerId}/points`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: bookPointsData.description,
+          points: parseFloat(bookPointsData.points),
+          date: bookPointsData.date,
+          category: bookPointsData.category,
+          moduleId: bookPointsData.moduleId || null,
+        }),
+      })
+      setBookPointsData({
+        description: '',
+        points: '',
+        date: new Date().toISOString().split('T')[0],
+        category: 'entwicklung',
+        moduleId: '',
+      })
+      setShowBookPointsModal(false)
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error booking points:', error)
+    } finally {
+      setIsBookingPoints(false)
+    }
+  }
+
+  // Edit transaction
+  const handleEditTransaction = async () => {
+    if (!editingTransaction) return
+
+    setIsEditingTransaction(true)
+    try {
+      await fetch(`/api/customers/${customerId}/points/${editingTransaction.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: editingTransaction.description,
+          points: parseFloat(editingTransaction.points),
+          date: editingTransaction.date,
+          category: editingTransaction.category,
+          moduleId: editingTransaction.moduleId || null,
+        }),
+      })
+      setEditingTransaction(null)
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error updating transaction:', error)
+    } finally {
+      setIsEditingTransaction(false)
+    }
+  }
+
+  // Delete transaction
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!confirm('Möchten Sie diese Punktebuchung wirklich löschen? Die Punkte werden dem Kunden gutgeschrieben.')) {
+      return
+    }
+
+    setIsDeletingTransaction(transactionId)
+    try {
+      await fetch(`/api/customers/${customerId}/points/${transactionId}`, {
+        method: 'DELETE',
+      })
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error deleting transaction:', error)
+    } finally {
+      setIsDeletingTransaction(null)
+    }
+  }
+
+  // Open edit modal for transaction
+  const openEditTransactionModal = (t: any) => {
+    setEditingTransaction({
+      id: t.id,
+      description: t.description,
+      points: String(t.points),
+      date: new Date(t.date).toISOString().split('T')[0],
+      category: t.category,
+      moduleId: t.moduleId || '',
+    })
+  }
+
+  // Delete message
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Möchten Sie diese Nachricht wirklich löschen?')) {
+      return
+    }
+
+    setIsDeletingMessage(messageId)
+    try {
+      await fetch(`/api/customers/${customerId}/messages/${messageId}`, {
+        method: 'DELETE',
+      })
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error deleting message:', error)
+    } finally {
+      setIsDeletingMessage(null)
+    }
+  }
 
   // Helper functions for roadmap builder
   const getModuleById = (moduleId: string) => customerModules.find(m => m.id === moduleId)
@@ -350,7 +573,27 @@ export default function CustomerDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Paket Info */}
               <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Paket-Details</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900">Paket-Details</h3>
+                  <button
+                    onClick={() => {
+                      setEditPackageData({
+                        tier: customer.membership.tier,
+                        monthlyPoints: customer.membership.monthlyPoints,
+                        monthlyPrice: customer.membership.monthlyPrice,
+                        discountPercent: customer.membership.discountPercent || 0,
+                        bonusPoints: customer.membership.bonusPoints || 0,
+                        contractStart: customer.membership.contractStart?.split('T')[0] || '',
+                        contractEnd: customer.membership.contractEnd?.split('T')[0] || '',
+                      })
+                      setShowEditPackageModal(true)
+                    }}
+                    className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Bearbeiten
+                  </button>
+                </div>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Paket</span>
@@ -363,15 +606,46 @@ export default function CustomerDetailPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-500">Monatlicher Beitrag</span>
                     <span className="font-medium">
-                      {(customer.membership.monthlyPrice / 100).toLocaleString('de-DE')} €
+                      {customer.membership.discountPercent > 0 ? (
+                        <>
+                          <span className="line-through text-gray-400 mr-2">
+                            {customer.membership.monthlyPrice.toLocaleString('de-DE')} €
+                          </span>
+                          <span className="text-green-600">
+                            {(customer.membership.monthlyPrice * (1 - customer.membership.discountPercent / 100)).toLocaleString('de-DE')} €
+                          </span>
+                        </>
+                      ) : (
+                        <>{customer.membership.monthlyPrice.toLocaleString('de-DE')} €</>
+                      )}
                     </span>
                   </div>
+                  {customer.membership.discountPercent > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Rabatt</span>
+                      <span className="font-medium text-green-600">{customer.membership.discountPercent}%</span>
+                    </div>
+                  )}
+                  {customer.membership.bonusPoints > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Bonus-Punkte</span>
+                      <span className="font-medium text-green-600">+{customer.membership.bonusPoints}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Vertragsbeginn</span>
                     <span className="font-medium">
                       {new Date(customer.membership.contractStart).toLocaleDateString('de-DE')}
                     </span>
                   </div>
+                  {customer.membership.contractEnd && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Vertragsende</span>
+                      <span className="font-medium">
+                        {new Date(customer.membership.contractEnd).toLocaleDateString('de-DE')}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">Abrechnungszeitraum</span>
                     <span className="font-medium">
@@ -417,18 +691,18 @@ export default function CustomerDetailPage() {
                       {customer.membership.remainingPoints}
                     </p>
                   </div>
-                  {customer.membership.carriedOverPoints && (
+                  {(customer.membership.carriedOverMonth1 || customer.membership.carriedOverMonth2 || customer.membership.carriedOverMonth3) && (
                     <div className="pt-3 border-t border-gray-100">
                       <p className="text-sm text-gray-500 mb-2">Übertragene Punkte</p>
                       <div className="flex gap-2">
                         <span className="px-2 py-1 rounded bg-red-50 text-red-600 text-xs">
-                          {customer.membership.carriedOverPoints.month1} (verfällt)
+                          {customer.membership.carriedOverMonth1 || 0} (verfällt)
                         </span>
                         <span className="px-2 py-1 rounded bg-yellow-50 text-yellow-600 text-xs">
-                          {customer.membership.carriedOverPoints.month2}
+                          {customer.membership.carriedOverMonth2 || 0}
                         </span>
                         <span className="px-2 py-1 rounded bg-green-50 text-green-600 text-xs">
-                          {customer.membership.carriedOverPoints.month3}
+                          {customer.membership.carriedOverMonth3 || 0}
                         </span>
                       </div>
                     </div>
@@ -440,28 +714,68 @@ export default function CustomerDetailPage() {
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <h3 className="font-semibold text-gray-900 mb-4">Ansprechpartner (intern)</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-                      <span className="text-sm font-medium text-primary-700">
-                        {customer.advisor.name.split(' ').map(n => n[0]).join('')}
-                      </span>
+                  {customer.advisor ? (
+                    <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+                          <span className="text-sm font-medium text-primary-700">
+                            {customer.advisor.name?.split(' ').map((n: string) => n[0]).join('') || '?'}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{customer.advisor.name || 'Nicht zugewiesen'}</p>
+                          <p className="text-sm text-gray-500">{customer.advisor.role || '-'}</p>
+                        </div>
+                      </div>
+                      {(customer.advisor.email || customer.advisor.phone) && (
+                        <div className="pt-2 border-t border-gray-200 space-y-1">
+                          {customer.advisor.email && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Mail className="h-3 w-3" />
+                              <a href={`mailto:${customer.advisor.email}`} className="hover:text-primary-600">
+                                {customer.advisor.email}
+                              </a>
+                            </div>
+                          )}
+                          {customer.advisor.phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="h-3 w-3" />
+                              <a href={`tel:${customer.advisor.phone}`} className="hover:text-primary-600">
+                                {customer.advisor.phone}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{customer.advisor.name}</p>
-                      <p className="text-sm text-gray-500">{customer.advisor.role}</p>
+                  ) : (
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-yellow-700">Kein Ansprechpartner zugewiesen</p>
                     </div>
-                  </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Ansprechpartner ändern
                     </label>
                     <select
-                      defaultValue={customer.advisor.id}
+                      value={customer.advisor?.id || ''}
+                      onChange={async (e) => {
+                        const newAdvisorId = e.target.value
+                        if (newAdvisorId && newAdvisorId !== customer.advisor?.id) {
+                          try {
+                            await updateCustomer(customerId, { advisorId: newAdvisorId })
+                            mutate() // Refresh customer data
+                          } catch (error) {
+                            console.error('Error updating advisor:', error)
+                          }
+                        }
+                      }}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     >
-                      {mockAdminTeamMembers.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name} - {member.role}
+                      <option value="">-- Auswählen --</option>
+                      {advisors.map((advisor: any) => (
+                        <option key={advisor.id} value={advisor.id}>
+                          {advisor.name} - {advisor.role}
                         </option>
                       ))}
                     </select>
@@ -611,6 +925,9 @@ export default function CustomerDetailPage() {
                       <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                         Punkte
                       </th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Aktionen
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -636,6 +953,29 @@ export default function CustomerDetailPage() {
                           </td>
                           <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right">
                             {t.points}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                onClick={() => openEditTransactionModal(t)}
+                                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                                title="Bearbeiten"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTransaction(t.id)}
+                                disabled={isDeletingTransaction === t.id}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Löschen"
+                              >
+                                {isDeletingTransaction === t.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -1215,6 +1555,16 @@ export default function CustomerDetailPage() {
             </div>
           )}
 
+          {/* Team Tab */}
+          {activeTab === 'team' && (
+            <TeamTab
+              customerId={customerId}
+              teamMembers={customer.teamMembers || []}
+              modules={customer.modules || []}
+              onUpdate={() => mutate()}
+            />
+          )}
+
           {/* Messages Tab */}
           {activeTab === 'messages' && (
             <div className="space-y-6">
@@ -1230,6 +1580,11 @@ export default function CustomerDetailPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
                     <input
                       type="text"
+                      value={newMessageSubject}
+                      onChange={(e) => {
+                        console.log('Subject changed:', e.target.value)
+                        setNewMessageSubject(e.target.value)
+                      }}
                       placeholder="Betreff der Nachricht"
                       className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
@@ -1238,18 +1593,32 @@ export default function CustomerDetailPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nachricht</label>
                     <textarea
                       rows={4}
+                      value={newMessageContent}
+                      onChange={(e) => setNewMessageContent(e.target.value)}
                       placeholder="Ihre Nachricht an den Kunden..."
                       className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" className="rounded border-gray-300" />
-                      <span className="text-sm text-gray-700">Aktion erforderlich</span>
-                    </label>
-                    <button className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
-                      <MessageSquare className="h-4 w-4" />
-                      Senden
+                  <div className="flex items-center justify-end">
+                    <button
+                      onClick={() => {
+                        console.log('Button clicked!')
+                        handleSendMessage()
+                      }}
+                      disabled={isSendingMessage || !newMessageSubject.trim() || !newMessageContent.trim()}
+                      className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSendingMessage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Senden...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquare className="h-4 w-4" />
+                          Senden
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1267,7 +1636,7 @@ export default function CustomerDetailPage() {
                       <p className="text-gray-500">Noch keine Nachrichten gesendet</p>
                     </div>
                   ) : (
-                    [...messages].reverse().map((msg) => (
+                    messages.map((msg) => (
                       <div key={msg.id} className="px-6 py-4 hover:bg-gray-50">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -1298,6 +1667,18 @@ export default function CustomerDetailPage() {
                               <span>von {msg.sentBy}</span>
                             </div>
                           </div>
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            disabled={isDeletingMessage === msg.id}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Nachricht löschen"
+                          >
+                            {isDeletingMessage === msg.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     ))
@@ -1325,9 +1706,11 @@ export default function CustomerDetailPage() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung *</label>
                 <input
                   type="text"
+                  value={bookPointsData.description}
+                  onChange={(e) => setBookPointsData({ ...bookPointsData, description: e.target.value })}
                   placeholder="Was wurde gemacht?"
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
@@ -1335,31 +1718,41 @@ export default function CustomerDetailPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Punkte</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Punkte *</label>
                   <input
                     type="number"
+                    step="0.25"
+                    min="0"
+                    value={bookPointsData.points}
+                    onChange={(e) => setBookPointsData({ ...bookPointsData, points: e.target.value })}
                     placeholder="10"
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
                   <input
                     type="date"
-                    defaultValue={new Date().toISOString().split('T')[0]}
+                    value={bookPointsData.date}
+                    onChange={(e) => setBookPointsData({ ...bookPointsData, date: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
-                <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie *</label>
+                <select
+                  value={bookPointsData.category}
+                  onChange={(e) => setBookPointsData({ ...bookPointsData, category: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
                   <option value="entwicklung">Entwicklung</option>
                   <option value="wartung">Wartung</option>
                   <option value="schulung">Schulung</option>
                   <option value="beratung">Beratung</option>
                   <option value="analyse">Analyse & PM</option>
+                  <option value="kommunikation">Kommunikation</option>
                 </select>
               </div>
 
@@ -1367,7 +1760,11 @@ export default function CustomerDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Modul (optional)
                 </label>
-                <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                <select
+                  value={bookPointsData.moduleId}
+                  onChange={(e) => setBookPointsData({ ...bookPointsData, moduleId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
                   <option value="">Kein Modul</option>
                   {customerModules.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -1385,8 +1782,129 @@ export default function CustomerDetailPage() {
               >
                 Abbrechen
               </button>
-              <button className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
-                Buchen
+              <button
+                onClick={handleBookPoints}
+                disabled={isBookingPoints || !bookPointsData.description || !bookPointsData.points}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isBookingPoints ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Buchen...
+                  </>
+                ) : (
+                  'Buchen'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">Punktebuchung bearbeiten</h2>
+              <button
+                onClick={() => setEditingTransaction(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="text-xl">&times;</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung *</label>
+                <input
+                  type="text"
+                  value={editingTransaction.description}
+                  onChange={(e) => setEditingTransaction({ ...editingTransaction, description: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="z.B. Entwicklung KI-Modul"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Punkte *</label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    value={editingTransaction.points}
+                    onChange={(e) => setEditingTransaction({ ...editingTransaction, points: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
+                  <input
+                    type="date"
+                    value={editingTransaction.date}
+                    onChange={(e) => setEditingTransaction({ ...editingTransaction, date: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie *</label>
+                <select
+                  value={editingTransaction.category}
+                  onChange={(e) => setEditingTransaction({ ...editingTransaction, category: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="entwicklung">Entwicklung</option>
+                  <option value="wartung">Wartung</option>
+                  <option value="schulung">Schulung</option>
+                  <option value="beratung">Beratung</option>
+                  <option value="analyse">Analyse & PM</option>
+                  <option value="kommunikation">Kommunikation</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Modul (optional)
+                </label>
+                <select
+                  value={editingTransaction.moduleId}
+                  onChange={(e) => setEditingTransaction({ ...editingTransaction, moduleId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">Kein Modul</option>
+                  {customerModules.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setEditingTransaction(null)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleEditTransaction}
+                disabled={isEditingTransaction || !editingTransaction.description || !editingTransaction.points}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isEditingTransaction ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Speichern...
+                  </>
+                ) : (
+                  'Speichern'
+                )}
               </button>
             </div>
           </div>
@@ -1495,7 +2013,10 @@ export default function CustomerDetailPage() {
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">Zugangsdaten</h2>
               <button
-                onClick={() => setShowCredentialsModal(false)}
+                onClick={() => {
+                  setShowCredentialsModal(false)
+                  setGeneratedCredential(null)
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 ✕
@@ -1511,7 +2032,11 @@ export default function CustomerDetailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm">{customer.email}</span>
-                    <button className="text-gray-400 hover:text-gray-600">
+                    <button
+                      onClick={() => navigator.clipboard.writeText(customer.email)}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Kopieren"
+                    >
                       <Copy className="h-4 w-4" />
                     </button>
                   </div>
@@ -1523,20 +2048,110 @@ export default function CustomerDetailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-bold">{customer.customerCode}</span>
-                    <button className="text-gray-400 hover:text-gray-600">
+                    <button
+                      onClick={() => navigator.clipboard.writeText(customer.customerCode || '')}
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Kopieren"
+                    >
                       <Copy className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Key className="h-4 w-4" />
+                    <span className="text-sm">Passwort</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm">{customer.password || '(nicht gesetzt)'}</span>
+                    {customer.password && (
+                      <button
+                        onClick={() => navigator.clipboard.writeText(customer.password!)}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Kopieren"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {/* Generated Credential Display */}
+              {generatedCredential && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-800 mb-2">
+                    {generatedCredential.type === 'password' ? 'Neues Passwort generiert:' : 'Neuer PIN generiert:'}
+                  </p>
+                  <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-green-200">
+                    <span className="font-mono text-lg font-bold text-green-700">{generatedCredential.value}</span>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(generatedCredential.value)}
+                      className="text-green-600 hover:text-green-700"
+                      title="Kopieren"
+                    >
+                      <Copy className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-green-600 mt-2">
+                    Bitte notieren Sie sich diese Daten - sie werden nur einmal angezeigt!
+                  </p>
+                </div>
+              )}
 
               <div className="border-t border-gray-200 pt-4">
                 <p className="text-sm text-gray-500 mb-3">Neue Zugangsdaten generieren</p>
                 <div className="flex gap-2">
-                  <button className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                  <button
+                    onClick={async () => {
+                      setIsGeneratingCredentials(true)
+                      try {
+                        const res = await fetch(`/api/customers/${customerId}/credentials`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'password' }),
+                        })
+                        const data = await res.json()
+                        if (data.success) {
+                          setGeneratedCredential({ type: 'password', value: data.value })
+                          mutate() // Refresh customer data to show new password
+                        }
+                      } catch (error) {
+                        console.error('Error generating password:', error)
+                      } finally {
+                        setIsGeneratingCredentials(false)
+                      }
+                    }}
+                    disabled={isGeneratingCredentials}
+                    className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingCredentials ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     Neues Passwort
                   </button>
-                  <button className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                  <button
+                    onClick={async () => {
+                      setIsGeneratingCredentials(true)
+                      try {
+                        const res = await fetch(`/api/customers/${customerId}/credentials`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'pin' }),
+                        })
+                        const data = await res.json()
+                        if (data.success) {
+                          setGeneratedCredential({ type: 'pin', value: data.value })
+                          mutate() // Refresh customer data to show new PIN
+                        }
+                      } catch (error) {
+                        console.error('Error generating PIN:', error)
+                      } finally {
+                        setIsGeneratingCredentials(false)
+                      }
+                    }}
+                    disabled={isGeneratingCredentials}
+                    className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingCredentials ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     Neuer PIN
                   </button>
                 </div>
@@ -1545,7 +2160,10 @@ export default function CustomerDetailPage() {
 
             <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
-                onClick={() => setShowCredentialsModal(false)}
+                onClick={() => {
+                  setShowCredentialsModal(false)
+                  setGeneratedCredential(null)
+                }}
                 className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
               >
                 Schließen
@@ -2108,6 +2726,174 @@ export default function CustomerDetailPage() {
                 className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Package Modal */}
+      {showEditPackageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">Paket-Details bearbeiten</h2>
+              <button
+                onClick={() => setShowEditPackageModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Paket
+                </label>
+                <select
+                  value={editPackageData.tier}
+                  onChange={(e) => {
+                    const tier = e.target.value
+                    const config = tierConfig[tier as keyof typeof tierConfig]
+                    setEditPackageData({
+                      ...editPackageData,
+                      tier,
+                      monthlyPoints: config.points,
+                      monthlyPrice: config.price,
+                    })
+                  }}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="S">Paket S - Small (100 Punkte, 2.900 €)</option>
+                  <option value="M">Paket M - Medium (200 Punkte, 4.900 €)</option>
+                  <option value="L">Paket L - Large (400 Punkte, 8.900 €)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monatliche Punkte
+                  </label>
+                  <input
+                    type="number"
+                    value={editPackageData.monthlyPoints}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, monthlyPoints: parseInt(e.target.value) || 0 })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monatlicher Preis (Cent)
+                  </label>
+                  <input
+                    type="number"
+                    value={editPackageData.monthlyPrice}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, monthlyPrice: parseInt(e.target.value) || 0 })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    = {editPackageData.monthlyPrice.toLocaleString('de-DE')} €
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vertragsbeginn
+                  </label>
+                  <input
+                    type="date"
+                    value={editPackageData.contractStart}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, contractStart: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vertragsende
+                  </label>
+                  <input
+                    type="date"
+                    value={editPackageData.contractEnd}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, contractEnd: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rabatt (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editPackageData.discountPercent}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, discountPercent: parseFloat(e.target.value) || 0 })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  {editPackageData.discountPercent > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Effektivpreis: {(editPackageData.monthlyPrice * (1 - editPackageData.discountPercent / 100)).toLocaleString('de-DE')} €
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bonus-Punkte
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editPackageData.bonusPoints}
+                    onChange={(e) => setEditPackageData({ ...editPackageData, bonusPoints: parseInt(e.target.value) || 0 })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Extra-Punkte für den Kunden
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setShowEditPackageModal(false)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  setIsSavingPackage(true)
+                  try {
+                    await updateMembership(customerId, {
+                      tier: editPackageData.tier,
+                      monthlyPoints: editPackageData.monthlyPoints,
+                      monthlyPrice: editPackageData.monthlyPrice,
+                      discountPercent: editPackageData.discountPercent,
+                      bonusPoints: editPackageData.bonusPoints,
+                      contractStart: editPackageData.contractStart,
+                      contractEnd: editPackageData.contractEnd || undefined,
+                    })
+                    mutate() // Refresh customer data
+                    setShowEditPackageModal(false)
+                  } catch (error) {
+                    console.error('Error updating package:', error)
+                  } finally {
+                    setIsSavingPackage(false)
+                  }
+                }}
+                disabled={isSavingPackage}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSavingPackage && <Loader2 className="h-4 w-4 animate-spin" />}
+                Speichern
               </button>
             </div>
           </div>

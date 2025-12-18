@@ -68,3 +68,25 @@ export async function deleteCustomer(id: string) {
   if (!response.ok) throw new Error('Failed to delete customer')
   return response.json()
 }
+
+export async function updateMembership(customerId: string, data: {
+  tier?: string
+  monthlyPoints?: number
+  monthlyPrice?: number
+  discountPercent?: number
+  bonusPoints?: number
+  usedPoints?: number
+  remainingPoints?: number
+  contractStart?: string
+  contractEnd?: string
+  periodStart?: string
+  periodEnd?: string
+}) {
+  const response = await fetch(`/api/customers/${customerId}/membership`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!response.ok) throw new Error('Failed to update membership')
+  return response.json()
+}
