@@ -255,6 +255,58 @@ export default function DashboardPage() {
             </Card>
           </div>
 
+          {/* Schulungen */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-gray-400" />
+                  KI-Schulungen für Ihr Team
+                </CardTitle>
+                <Link href="/schulungen">
+                  <Button variant="ghost" size="sm">
+                    Alle Kurse
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Link href="/schulungen" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
+                    <p className="text-2xl font-bold text-gray-900">8</p>
+                    <p className="text-sm text-gray-500">Verfügbare Kurse</p>
+                  </div>
+                </Link>
+                <Link href="/schulungen" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
+                    <p className="text-2xl font-bold text-green-600">
+                      {workshops.filter((w: any) => w.status === 'abgeschlossen').length}
+                    </p>
+                    <p className="text-sm text-gray-500">Abgeschlossen</p>
+                  </div>
+                </Link>
+                {upcomingWorkshop ? (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition-colors">
+                      <p className="text-sm font-medium text-gray-900">{upcomingWorkshop.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(upcomingWorkshop.date).toLocaleDateString('de-DE')}
+                      </p>
+                    </div>
+                  </Link>
+                ) : (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors text-center">
+                      <p className="text-sm text-gray-500">Schulung buchen</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Anleitungen & Dokumentation */}
           {modulesWithDocs.length > 0 && (
             <Card>
@@ -330,58 +382,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Schulungen */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-gray-400" />
-                  KI-Schulungen für Ihr Team
-                </CardTitle>
-                <Link href="/schulungen">
-                  <Button variant="ghost" size="sm">
-                    Alle Kurse
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Link href="/schulungen" className="block">
-                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
-                    <p className="text-2xl font-bold text-gray-900">8</p>
-                    <p className="text-sm text-gray-500">Verfügbare Kurse</p>
-                  </div>
-                </Link>
-                <Link href="/schulungen" className="block">
-                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
-                    <p className="text-2xl font-bold text-green-600">
-                      {workshops.filter((w: any) => w.status === 'abgeschlossen').length}
-                    </p>
-                    <p className="text-sm text-gray-500">Abgeschlossen</p>
-                  </div>
-                </Link>
-                {upcomingWorkshop ? (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition-colors">
-                      <p className="text-sm font-medium text-gray-900">{upcomingWorkshop.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(upcomingWorkshop.date).toLocaleDateString('de-DE')}
-                      </p>
-                    </div>
-                  </Link>
-                ) : (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors text-center">
-                      <p className="text-sm text-gray-500">Schulung buchen</p>
-                    </div>
-                  </Link>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
         </div>
       </div>
