@@ -15,6 +15,7 @@ import {
   Trash2,
   Check,
   X,
+  Copy,
 } from 'lucide-react'
 
 const categoryConfig: Record<string, { label: string; color: string }> = {
@@ -79,6 +80,21 @@ export default function ModulkatalogPage() {
     if (confirm('Möchten Sie diese Vorlage wirklich löschen?')) {
       setTemplates(templates.filter(t => t.id !== id))
     }
+  }
+
+  const handleCloneTemplate = (template: ModuleTemplate) => {
+    const clonedTemplate: ModuleTemplate = {
+      id: `tpl-clone-${Date.now()}`,
+      name: `${template.name} (Kopie)`,
+      description: template.description,
+      category: template.category,
+      estimatedPoints: template.estimatedPoints,
+      estimatedMaintenancePoints: template.estimatedMaintenancePoints,
+      features: [...template.features],
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0],
+    }
+    setTemplates([...templates, clonedTemplate])
   }
 
   return (
@@ -150,12 +166,20 @@ export default function ModulkatalogPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleCloneTemplate(template)}
+                    className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Vorlage klonen"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
                   <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                     <Edit className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteTemplate(template.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Vorlage löschen"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

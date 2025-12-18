@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AdminHeader } from '@/components/admin/admin-header'
 import {
-  mockAdminTeamMembers,
   mockCustomerRoadmaps,
   schulungskatalog,
   schulungSerien,
@@ -146,6 +145,18 @@ export default function CustomerDetailPage() {
   const [isEditingTransaction, setIsEditingTransaction] = useState(false)
   const [isDeletingTransaction, setIsDeletingTransaction] = useState<string | null>(null)
   const [isDeletingMessage, setIsDeletingMessage] = useState<string | null>(null)
+  const [isDeletingModule, setIsDeletingModule] = useState<string | null>(null)
+  const [isCreatingModule, setIsCreatingModule] = useState(false)
+
+  // New Module Form State
+  const [newModuleData, setNewModuleData] = useState({
+    name: '',
+    description: '',
+    status: 'geplant',
+    monthlyMaintenancePoints: '',
+    softwareUrl: '',
+    assigneeId: '',
+  })
 
   // Get data from API response
   const apiModules = customer?.modules || []
@@ -359,6 +370,62 @@ export default function CustomerDetailPage() {
     }
   }
 
+  // Create new module
+  const handleCreateModule = async () => {
+    if (!newModuleData.name.trim()) return
+
+    setIsCreatingModule(true)
+    try {
+      await fetch('/api/modules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newModuleData.name,
+          description: newModuleData.description,
+          status: newModuleData.status,
+          monthlyMaintenancePoints: parseFloat(newModuleData.monthlyMaintenancePoints) || 0,
+          softwareUrl: newModuleData.softwareUrl || null,
+          assigneeId: newModuleData.assigneeId || null,
+          customerId: customerId,
+          showInRoadmap: true,
+        }),
+      })
+      setNewModuleData({
+        name: '',
+        description: '',
+        status: 'geplant',
+        monthlyMaintenancePoints: '',
+        softwareUrl: '',
+        assigneeId: '',
+      })
+      setShowNewModuleModal(false)
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error creating module:', error)
+    } finally {
+      setIsCreatingModule(false)
+    }
+  }
+
+  // Delete module
+  const handleDeleteModule = async (moduleId: string) => {
+    if (!confirm('Möchten Sie dieses Modul wirklich löschen?')) {
+      return
+    }
+
+    setIsDeletingModule(moduleId)
+    try {
+      await fetch(`/api/modules/${moduleId}`, {
+        method: 'DELETE',
+      })
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error deleting module:', error)
+    } finally {
+      setIsDeletingModule(null)
+    }
+  }
+
   // Helper functions for roadmap builder
   const getModuleById = (moduleId: string) => customerModules.find(m => m.id === moduleId)
   const getSchulungById = (schulungId: string) => schulungskatalog.find(s => s.id === schulungId)
@@ -420,31 +487,29 @@ export default function CustomerDetailPage() {
   }
 
   // Add module from catalog to customer
-  const addModuleFromCatalog = (template: ModuleTemplate) => {
-    const newModule: Module = {
-      id: `mod-new-${Date.now()}`,
-      name: template.name,
-      description: template.description,
-      status: 'geplant',
-      priority: 'mittel',
-      progress: 0,
-      monthlyMaintenancePoints: template.estimatedMaintenancePoints,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-      showInRoadmap: true,
-      roadmapOrder: customerModules.length + 1,
+  const addModuleFromCatalog = async (template: ModuleTemplate) => {
+    setIsCreatingModule(true)
+    try {
+      await fetch('/api/modules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: template.name,
+          description: template.description,
+          status: 'geplant',
+          priority: 'mittel',
+          monthlyMaintenancePoints: template.estimatedMaintenancePoints,
+          customerId: customerId,
+          showInRoadmap: true,
+        }),
+      })
+      setShowAddModuleFromCatalogModal(false)
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error creating module from catalog:', error)
+    } finally {
+      setIsCreatingModule(false)
     }
-    setCustomerModules([...customerModules, newModule])
-    setShowAddModuleFromCatalogModal(false)
-
-    // Also add to roadmap
-    const roadmapItem: CustomerRoadmapItem = {
-      id: `cri-new-${Date.now()}`,
-      type: 'modul',
-      moduleId: newModule.id,
-      order: roadmapItems.length + 1,
-    }
-    setRoadmapItems([...roadmapItems, roadmapItem])
   }
 
   // Add schulung or serie to customer
@@ -1077,21 +1142,38 @@ export default function CustomerDetailPage() {
                   {/* Module Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {customerModules.map((module) => {
-                      const assignee = mockAdminTeamMembers.find(m => m.id === module.assigneeId)
+                      const assignee = (customer?.teamMembers || []).find((m: any) => m.id === module.assigneeId)
                       return (
                         <div
                           key={module.id}
-                          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+                          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer relative group"
                           onClick={() => {
                             setSelectedModule(module)
                             setEditingCriteria(module.acceptanceCriteria || [])
                             setShowModuleDetailModal(true)
                           }}
                         >
-                          <div className="flex items-start justify-between mb-3">
+                          {/* Delete Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteModule(module.id)
+                            }}
+                            disabled={isDeletingModule === module.id}
+                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all disabled:opacity-50"
+                            title="Modul löschen"
+                          >
+                            {isDeletingModule === module.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+
+                          <div className="flex items-start justify-between mb-3 pr-8">
                             <h4 className="font-semibold text-gray-900">{module.name}</h4>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${moduleStatusConfig[module.status].color}`}>
-                              {moduleStatusConfig[module.status].label}
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${moduleStatusConfig[module.status]?.color || 'bg-gray-100 text-gray-700'}`}>
+                              {moduleStatusConfig[module.status]?.label || module.status}
                             </span>
                           </div>
                           <p className="text-sm text-gray-500 mb-4 line-clamp-2">{module.description}</p>
@@ -1147,23 +1229,48 @@ export default function CustomerDetailPage() {
                 /* Kanban Mode */
                 <KanbanBoard
                   items={customerModules}
-                  teamMembers={mockAdminTeamMembers}
+                  teamMembers={customer?.teamMembers || []}
                   showMaintenancePoints={true}
-                  onStatusChange={(itemId, newStatus) => {
+                  onStatusChange={async (itemId, newStatus) => {
+                    // Update local state immediately
                     setCustomerModules(prev =>
                       prev.map(m => m.id === itemId ? { ...m, status: newStatus } : m)
                     )
+                    // Persist to API
+                    try {
+                      await fetch(`/api/modules/${itemId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: newStatus.replace(/-/g, '_') }),
+                      })
+                      mutate()
+                    } catch (error) {
+                      console.error('Error updating module status:', error)
+                    }
                   }}
-                  onAssigneeChange={(itemId, assigneeId) => {
+                  onAssigneeChange={async (itemId, assigneeId) => {
+                    // Update local state immediately
                     setCustomerModules(prev =>
                       prev.map(m => m.id === itemId ? { ...m, assigneeId: assigneeId || undefined } : m)
                     )
+                    // Persist to API
+                    try {
+                      await fetch(`/api/modules/${itemId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ assigneeId: assigneeId || null }),
+                      })
+                      mutate()
+                    } catch (error) {
+                      console.error('Error updating module assignee:', error)
+                    }
                   }}
                   onItemClick={(item) => {
                     setSelectedModule(item)
                     setEditingCriteria(item.acceptanceCriteria || [])
                     setShowModuleDetailModal(true)
                   }}
+                  onDeleteItem={handleDeleteModule}
                 />
               )}
             </div>
@@ -1927,10 +2034,12 @@ export default function CustomerDetailPage() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input
                   type="text"
                   placeholder="Modulname"
+                  value={newModuleData.name}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, name: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
               </div>
@@ -1940,6 +2049,8 @@ export default function CustomerDetailPage() {
                 <textarea
                   rows={3}
                   placeholder="Was macht dieses Modul?"
+                  value={newModuleData.description}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, description: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
               </div>
@@ -1947,10 +2058,15 @@ export default function CustomerDetailPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                    <option value="setup">Setup</option>
-                    <option value="live">Live</option>
-                    <option value="optimierung">Optimierung</option>
+                  <select
+                    value={newModuleData.status}
+                    onChange={(e) => setNewModuleData({ ...newModuleData, status: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="geplant">Geplant</option>
+                    <option value="in_arbeit">In Arbeit</option>
+                    <option value="im_test">Im Test</option>
+                    <option value="abgeschlossen">Live</option>
                   </select>
                 </div>
                 <div>
@@ -1960,6 +2076,8 @@ export default function CustomerDetailPage() {
                   <input
                     type="number"
                     placeholder="10"
+                    value={newModuleData.monthlyMaintenancePoints}
+                    onChange={(e) => setNewModuleData({ ...newModuleData, monthlyMaintenancePoints: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
@@ -1972,22 +2090,31 @@ export default function CustomerDetailPage() {
                 <input
                   type="url"
                   placeholder="https://"
+                  value={newModuleData.softwareUrl}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, softwareUrl: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Verantwortlicher
+                  Verantwortlicher (Kundenseite)
                 </label>
-                <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
+                <select
+                  value={newModuleData.assigneeId}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, assigneeId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
                   <option value="">Nicht zugewiesen</option>
-                  {mockAdminTeamMembers.map((member) => (
+                  {(customer?.teamMembers || []).map((member: any) => (
                     <option key={member.id} value={member.id}>
                       {member.name} - {member.role}
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Der Kunde kann dies im Portal selbst ändern
+                </p>
               </div>
             </div>
 
@@ -1998,8 +2125,19 @@ export default function CustomerDetailPage() {
               >
                 Abbrechen
               </button>
-              <button className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
-                Modul anlegen
+              <button
+                onClick={handleCreateModule}
+                disabled={isCreatingModule || !newModuleData.name.trim()}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isCreatingModule ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Anlegen...
+                  </>
+                ) : (
+                  'Modul anlegen'
+                )}
               </button>
             </div>
           </div>

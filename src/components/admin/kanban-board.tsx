@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Module, TeamMember, ModuleStatus } from '@/types'
-import { GripVertical, Calendar, Check, Clock, User, ListChecks, ExternalLink } from 'lucide-react'
+import { GripVertical, Calendar, Check, Clock, User, ListChecks, ExternalLink, Trash2, Copy } from 'lucide-react'
 
 interface KanbanBoardProps {
   items: Module[]
@@ -27,6 +27,8 @@ interface KanbanBoardProps {
   onStatusChange: (itemId: string, newStatus: ModuleStatus) => void
   onAssigneeChange: (itemId: string, assigneeId: string | null) => void
   onItemClick?: (item: Module) => void
+  onDeleteItem?: (itemId: string) => void
+  onCloneItem?: (item: Module) => void
   showMaintenancePoints?: boolean // For modules view
 }
 
@@ -44,10 +46,12 @@ interface KanbanCardProps {
   teamMembers: TeamMember[]
   onAssigneeChange: (itemId: string, assigneeId: string | null) => void
   onItemClick?: (item: Module) => void
+  onDeleteItem?: (itemId: string) => void
+  onCloneItem?: (item: Module) => void
   showMaintenancePoints?: boolean
 }
 
-function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, showMaintenancePoints }: KanbanCardProps) {
+function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, onDeleteItem, onCloneItem, showMaintenancePoints }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -71,19 +75,45 @@ function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, showMain
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer group relative"
       onClick={() => onItemClick?.(item)}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="font-medium text-gray-900 text-sm">{item.name}</h4>
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 -m-1 hover:bg-gray-100 rounded"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="h-4 w-4 text-gray-400" />
-        </button>
+        <h4 className="font-medium text-gray-900 text-sm pr-12">{item.name}</h4>
+        <div className="flex items-center gap-1 absolute top-3 right-3">
+          {onCloneItem && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onCloneItem(item)
+              }}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 text-blue-500 rounded transition-all"
+              title="Klonen"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDeleteItem && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDeleteItem(item.id)
+              }}
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-red-500 rounded transition-all"
+              title="Löschen"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4 text-gray-400" />
+          </button>
+        </div>
       </div>
       <p className="text-xs text-gray-500 mb-3 line-clamp-2">
         {item.description}
@@ -208,6 +238,8 @@ function KanbanColumn({
   teamMembers,
   onAssigneeChange,
   onItemClick,
+  onDeleteItem,
+  onCloneItem,
   showMaintenancePoints,
 }: {
   status: ModuleStatus
@@ -215,6 +247,8 @@ function KanbanColumn({
   teamMembers: TeamMember[]
   onAssigneeChange: (itemId: string, assigneeId: string | null) => void
   onItemClick?: (item: Module) => void
+  onDeleteItem?: (itemId: string) => void
+  onCloneItem?: (item: Module) => void
   showMaintenancePoints?: boolean
 }) {
   const config = statusConfig[status]
@@ -236,6 +270,8 @@ function KanbanColumn({
               teamMembers={teamMembers}
               onAssigneeChange={onAssigneeChange}
               onItemClick={onItemClick}
+              onDeleteItem={onDeleteItem}
+              onCloneItem={onCloneItem}
               showMaintenancePoints={showMaintenancePoints}
             />
           ))}
@@ -250,7 +286,7 @@ function KanbanColumn({
   )
 }
 
-export function KanbanBoard({ items, teamMembers, onStatusChange, onAssigneeChange, onItemClick, showMaintenancePoints }: KanbanBoardProps) {
+export function KanbanBoard({ items, teamMembers, onStatusChange, onAssigneeChange, onItemClick, onDeleteItem, onCloneItem, showMaintenancePoints }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [localItems, setLocalItems] = useState(items)
 
@@ -327,6 +363,8 @@ export function KanbanBoard({ items, teamMembers, onStatusChange, onAssigneeChan
             teamMembers={teamMembers}
             onAssigneeChange={onAssigneeChange}
             onItemClick={onItemClick}
+            onDeleteItem={onDeleteItem}
+            onCloneItem={onCloneItem}
             showMaintenancePoints={showMaintenancePoints}
           />
         ))}
