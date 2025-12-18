@@ -1,0 +1,470 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum MembershipTier {
+  S
+  M
+  L
+}
+
+enum PointCategory {
+  entwicklung
+  wartung
+  schulung
+  beratung
+  analyse
+}
+
+enum ExternalCostType {
+  tokens
+  server
+  telefonie
+  sonstige
+}
+
+enum ModuleStatus {
+  geplant
+  in_arbeit
+  im_test
+  abgeschlossen
+}
+
+enum ModulePriority {
+  hoch
+  mittel
+  niedrig
+}
+
+enum AcceptanceStatus {
+  ausstehend
+  akzeptiert
+  abgelehnt
+}
+
+enum SchulungCategory {
+  grundlagen
+  fortgeschritten
+  spezialisiert
+}
+
+enum SchulungAssignmentStatus {
+  geplant
+  in_durchfuehrung
+  abgeschlossen
+}
+
+enum WorkshopStatus {
+  geplant
+  abgeschlossen
+}
+
+enum MeetingType {
+  abstimmung
+  workshop
+  review
+}
+
+enum NotificationType {
+  acceptance_required
+  test_required
+  message
+  project_update
+  milestone_reached
+  budget_warning
+}
+
+// ==================== MODELS ====================
+
+// Kundenberater
+model CustomerAdvisor {
+  id          String   @id @default(cuid())
+  name        String
+  role        String
+  email       String   @unique
+  phone       String
+  avatarUrl   String?
+  calendlyUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customers Customer[]
+}
+
+// Mitgliedschaft
+model Membership {
+  id                String         @id @default(cuid())
+  tier              MembershipTier
+  monthlyPoints     Int
+  usedPoints        Int            @default(0)
+  remainingPoints   Int
+  monthlyPrice      Float
+  contractStart     DateTime
+  periodStart       DateTime
+  periodEnd         DateTime
+  // Übertragene Punkte
+  carriedOverMonth1 Int            @default(0)
+  carriedOverMonth2 Int            @default(0)
+  carriedOverMonth3 Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  customer Customer?
+}
+
+// Kunde
+model Customer {
+  id           String @id @default(cuid())
+  name         String
+  companyName  String
+  email        String @unique
+  customerCode String @unique // 4-stelliger Code
+
+  membershipId String     @unique
+  membership   Membership @relation(fields: [membershipId], references: [id])
+
+  advisorId String
+  advisor   CustomerAdvisor @relation(fields: [advisorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  modules               Module[]
+  pointTransactions     PointTransaction[]
+  externalCosts         ExternalCost[]
+  workshops             Workshop[]
+  decisions             Decision[]
+  meetings              Meeting[]
+  notifications         Notification[]
+  adminMessages         AdminMessage[]
+  schulungAssignments   CustomerSchulungAssignment[]
+  customerRoadmapItems  CustomerRoadmapItem[]
+}
+
+// Punkt-Transaktionen
+model PointTransaction {
+  id          String        @id @default(cuid())
+  date        DateTime
+  description String
+  points      Int
+  category    PointCategory
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  moduleId String?
+  module   Module? @relation(fields: [moduleId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// Externe Kosten
+model ExternalCost {
+  id          String           @id @default(cuid())
+  date        DateTime
+  type        ExternalCostType
+  description String
+  amount      Float
+  unit        String
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Team Mitglieder (intern)
+model TeamMember {
+  id         String @id @default(cuid())
+  name       String
+  role       String
+  department String
+  email      String? @unique
+  avatarUrl  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedModules Module[]
+}
+
+// Modul (kombiniert Module + RoadmapItem)
+model Module {
+  id          String         @id @default(cuid())
+  name        String
+  description String
+  status      ModuleStatus   @default(geplant)
+  priority    ModulePriority @default(mittel)
+  progress    Int            @default(0) // 0-100
+
+  // Termine
+  startDate     DateTime?
+  targetDate    DateTime?
+  completedDate DateTime?
+
+  // Wartung & Kosten
+  monthlyMaintenancePoints Int     @default(0)
+  softwareUrl              String?
+
+  // Akzeptanz
+  acceptanceStatus AcceptanceStatus?
+  acceptedAt       DateTime?
+  acceptedBy       String?
+
+  // Test-Phase
+  testCompletedAt DateTime?
+  testCompletedBy String?
+
+  // Roadmap
+  showInRoadmap Boolean @default(true)
+  roadmapOrder  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  assigneeId String?
+  assignee   TeamMember? @relation(fields: [assigneeId], references: [id])
+
+  acceptanceCriteria AcceptanceCriterion[]
+  testFeedback       TestFeedback[]
+  historyEntries     ModuleHistoryEntry[]
+  milestones         Milestone[]
+  pointTransactions  PointTransaction[]
+  customerRoadmapItems CustomerRoadmapItem[]
+}
+
+// Akzeptanzkriterien
+model AcceptanceCriterion {
+  id          String  @id @default(cuid())
+  description String
+  accepted    Boolean @default(false)
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+// Test Feedback
+model TestFeedback {
+  id       String   @id @default(cuid())
+  date     DateTime @default(now())
+  feedback String
+  resolved Boolean  @default(false)
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+// Modul History
+model ModuleHistoryEntry {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  action      String
+  description String
+  pointsUsed  Int?
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+// Meilensteine
+model Milestone {
+  id        String   @id @default(cuid())
+  title     String
+  date      DateTime
+  completed Boolean  @default(false)
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+// Modul Template (Katalog)
+model ModuleTemplate {
+  id                        String   @id @default(cuid())
+  name                      String
+  description               String
+  category                  String
+  estimatedPoints           Int
+  estimatedMaintenancePoints Int
+  features                  String[] // PostgreSQL array
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Schulung (Katalog)
+model Schulung {
+  id          String           @id @default(cuid())
+  title       String
+  description String
+  duration    String
+  points      Int
+  category    SchulungCategory
+  isCustom    Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  serieItems   SchulungSerieItem[]
+  assignments  CustomerSchulungAssignment[]
+  roadmapItems CustomerRoadmapItem[]
+}
+
+// Schulung Serie
+model SchulungSerie {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  totalPoints Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  schulungItems SchulungSerieItem[]
+  assignments   CustomerSchulungAssignment[]
+}
+
+// Schulung Serie Items (Verknüpfung)
+model SchulungSerieItem {
+  id    String @id @default(cuid())
+  order Int
+
+  serieId    String
+  serie      SchulungSerie @relation(fields: [serieId], references: [id], onDelete: Cascade)
+
+  schulungId String
+  schulung   Schulung @relation(fields: [schulungId], references: [id], onDelete: Cascade)
+
+  @@unique([serieId, schulungId])
+}
+
+// Kunden Schulung Zuweisung
+model CustomerSchulungAssignment {
+  id                    String                   @id @default(cuid())
+  status                SchulungAssignmentStatus @default(geplant)
+  scheduledDate         DateTime?
+  completedDate         DateTime?
+  completedSchulungIds  String[]                 // Für Serien
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  schulungId String?
+  schulung   Schulung? @relation(fields: [schulungId], references: [id])
+
+  serieId String?
+  serie   SchulungSerie? @relation(fields: [serieId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Kunden Roadmap Item
+model CustomerRoadmapItem {
+  id          String  @id @default(cuid())
+  type        String  // 'modul' | 'schulung'
+  order       Int
+  customTitle String?
+  targetDate  DateTime?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  moduleId String?
+  module   Module? @relation(fields: [moduleId], references: [id])
+
+  schulungId String?
+  schulung   Schulung? @relation(fields: [schulungId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// Workshop
+model Workshop {
+  id           String         @id @default(cuid())
+  title        String
+  date         DateTime
+  duration     String
+  participants Int
+  pointsUsed   Int
+  status       WorkshopStatus @default(geplant)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Entscheidungen
+model Decision {
+  id           String   @id @default(cuid())
+  date         DateTime
+  title        String
+  description  String
+  participants String[]
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Meetings
+model Meeting {
+  id    String      @id @default(cuid())
+  title String
+  date  DateTime
+  type  MeetingType
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Benachrichtigungen
+model Notification {
+  id               String           @id @default(cuid())
+  type             NotificationType
+  title            String
+  message          String
+  read             Boolean          @default(false)
+  actionRequired   Boolean          @default(false)
+  relatedProjectId String?
+  relatedUrl       String?
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Admin Nachrichten
+model AdminMessage {
+  id       String  @id @default(cuid())
+  subject  String
+  content  String
+  read     Boolean @default(false)
+  from     String
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}

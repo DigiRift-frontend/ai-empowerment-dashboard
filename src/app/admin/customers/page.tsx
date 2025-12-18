@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
-import { mockCustomers, mockCustomerModules } from '@/lib/admin-mock-data'
-import { Search, Plus, Filter, MoreVertical, Eye, Edit, Trash2, Package, Users, Map, ChevronRight } from 'lucide-react'
+import { useCustomers, createCustomer } from '@/hooks/use-customers'
+import { Search, Plus, Filter, Eye, Edit, Package, Users, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 const tierConfig = {
@@ -13,22 +13,63 @@ const tierConfig = {
 }
 
 export default function CustomersPage() {
+  const { customers, isLoading, mutate } = useCustomers()
   const [searchTerm, setSearchTerm] = useState('')
   const [tierFilter, setTierFilter] = useState<string>('alle')
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
 
-  const filteredCustomers = mockCustomers.filter((customer) => {
+  // Form state
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    companyName: '',
+    email: '',
+    tier: 'M',
+    advisorId: 'advisor1',
+  })
+
+  const filteredCustomers = customers.filter((customer: any) => {
     const matchesSearch =
       customer.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesTier = tierFilter === 'alle' || customer.membership.tier === tierFilter
+    const matchesTier = tierFilter === 'alle' || customer.membership?.tier === tierFilter
     return matchesSearch && matchesTier
   })
 
+  const handleCreateCustomer = async () => {
+    if (!newCustomer.name || !newCustomer.companyName || !newCustomer.email) return
+
+    setIsCreating(true)
+    try {
+      await createCustomer({
+        ...newCustomer,
+        monthlyPoints: newCustomer.tier === 'S' ? 100 : newCustomer.tier === 'M' ? 200 : 400,
+      })
+      mutate()
+      setShowNewCustomerModal(false)
+      setNewCustomer({ name: '', companyName: '', email: '', tier: 'M', advisorId: 'advisor1' })
+    } catch (error) {
+      console.error('Error creating customer:', error)
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <AdminHeader title="Kundenverwaltung" subtitle="Laden..." />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-screen">
-      <AdminHeader title="Kundenverwaltung" subtitle={`${mockCustomers.length} Kunden`} />
+      <AdminHeader title="Kundenverwaltung" subtitle={`${customers.length} Kunden`} />
 
       <div className="flex-1 overflow-auto p-6">
         {/* Toolbar */}
@@ -99,12 +140,13 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredCustomers.map((customer) => {
-                const modules = mockCustomerModules[customer.id] || []
+              {filteredCustomers.map((customer: any) => {
+                const modules = customer.modules || []
                 const activeModules = modules.filter(
-                  (m) => m.status === 'in-arbeit' || m.status === 'im-test'
+                  (m: any) => m.status === 'in_arbeit' || m.status === 'im_test'
                 ).length
-                const liveModules = modules.filter(m => m.status === 'abgeschlossen').length
+                const liveModules = modules.filter((m: any) => m.status === 'abgeschlossen').length
+                const tier = customer.membership?.tier || 'M'
 
                 return (
                   <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
@@ -121,22 +163,22 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tierConfig[customer.membership.tier].color}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${tierConfig[tier as keyof typeof tierConfig]?.color || 'bg-gray-100 text-gray-700'}`}
                       >
                         <Package className="h-3 w-3" />
-                        Paket {customer.membership.tier}
+                        Paket {tier}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {customer.membership.remainingPoints} / {customer.membership.monthlyPoints}
+                          {customer.membership?.remainingPoints || 0} / {customer.membership?.monthlyPoints || 0}
                         </p>
                         <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-100">
                           <div
                             className="h-1.5 rounded-full bg-primary-500"
                             style={{
-                              width: `${(customer.membership.remainingPoints / customer.membership.monthlyPoints) * 100}%`,
+                              width: `${customer.membership ? (customer.membership.remainingPoints / customer.membership.monthlyPoints) * 100 : 0}%`,
                             }}
                           />
                         </div>
@@ -165,7 +207,9 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">
-                        {new Date(customer.membership.contractStart).toLocaleDateString('de-DE')}
+                        {customer.membership?.contractStart
+                          ? new Date(customer.membership.contractStart).toLocaleDateString('de-DE')
+                          : '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -227,6 +271,8 @@ export default function CustomersPage() {
                     <input
                       type="text"
                       placeholder="Max Mustermann"
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
                   </div>
@@ -237,6 +283,8 @@ export default function CustomersPage() {
                     <input
                       type="text"
                       placeholder="Firma GmbH"
+                      value={newCustomer.companyName}
+                      onChange={(e) => setNewCustomer({ ...newCustomer, companyName: e.target.value })}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
                   </div>
@@ -249,38 +297,24 @@ export default function CustomersPage() {
                   <input
                     type="email"
                     placeholder="max@firma.de"
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Paket
-                    </label>
-                    <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                      <option value="S">Paket S - 100 Punkte (2.900 €)</option>
-                      <option value="M">Paket M - 200 Punkte (4.900 €)</option>
-                      <option value="L">Paket L - 400 Punkte (8.900 €)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Vertragsbeginn
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ansprechpartner (digirift)
+                    Paket
                   </label>
-                  <select className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                    <option value="adv1">Kamil Gawlik - Customer Success Manager</option>
+                  <select
+                    value={newCustomer.tier}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, tier: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="S">Paket S - 100 Punkte (2.900 €)</option>
+                    <option value="M">Paket M - 200 Punkte (4.900 €)</option>
+                    <option value="L">Paket L - 400 Punkte (8.900 €)</option>
                   </select>
                 </div>
               </div>
@@ -292,7 +326,12 @@ export default function CustomersPage() {
                 >
                   Abbrechen
                 </button>
-                <button className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors">
+                <button
+                  onClick={handleCreateCustomer}
+                  disabled={isCreating || !newCustomer.name || !newCustomer.companyName || !newCustomer.email}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
                   Kunde anlegen
                 </button>
               </div>

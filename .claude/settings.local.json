@@ -18,7 +18,12 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(git diff:*)",
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(npx prisma:*)",
+      "Bash(psql:*)",
+      "Bash(pg_isready:*)",
+      "Bash(createdb:*)",
+      "Bash(npm run db:seed:*)"
     ]
   }
 }
