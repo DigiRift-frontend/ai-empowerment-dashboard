@@ -44,6 +44,7 @@ export async function POST(request: Request) {
         department: body.department,
         email: body.email,
         avatarUrl: body.avatarUrl,
+        calendlyUrl: body.calendlyUrl,
       },
     })
 

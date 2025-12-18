@@ -51,6 +51,7 @@ export async function PATCH(
     if (body.department !== undefined) updateData.department = body.department
     if (body.email !== undefined) updateData.email = body.email
     if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null
+    if (body.calendlyUrl !== undefined) updateData.calendlyUrl = body.calendlyUrl || null
 
     const updatedMember = await prisma.teamMember.update({
       where: { id: params.id },

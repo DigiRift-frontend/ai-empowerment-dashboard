@@ -757,22 +757,6 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                   </a>
                 )}
 
-                {/* Progress - Only show if not completed and not planned */}
-                {project.status !== 'abgeschlossen' && project.status !== 'geplant' && (
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-600">Fortschritt</span>
-                      <span className="font-semibold text-gray-900">{project.progress}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary-500 transition-all"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
                 {/* Maintenance Points */}
                 <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
                   <div className="flex items-center gap-2">
@@ -792,14 +776,27 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
 
                 {/* Internal Contact */}
                 {project.assignee && (
-                  <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                      <User className="h-5 w-5 text-gray-600" />
+                  <div className="rounded-lg border border-gray-200 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                        <User className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Ihr Ansprechpartner</p>
+                        <p className="text-sm font-medium text-gray-900">{project.assignee.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Ihr Ansprechpartner</p>
-                      <p className="text-sm font-medium text-gray-900">{project.assignee.name}</p>
-                    </div>
+                    {project.assignee.calendlyUrl && (
+                      <a
+                        href={project.assignee.calendlyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors w-full"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        Termin vereinbaren
+                      </a>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -829,6 +826,12 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                             (e.target as HTMLImageElement).src = '/images/video-placeholder.jpg'
                           }}
                         />
+                        {/* Play Button Overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/60 group-hover:bg-black/70 group-hover:scale-110 transition-all shadow-lg">
+                            <PlayCircle className="h-8 w-8 text-white ml-0.5" />
+                          </div>
+                        </div>
                       </div>
                       <div className="p-3 bg-gray-50">
                         <p className="text-sm font-medium text-gray-900 flex items-center gap-2">

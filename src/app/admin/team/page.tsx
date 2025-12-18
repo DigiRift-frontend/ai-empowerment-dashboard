@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { useTeam } from '@/hooks/use-team'
-import { Plus, Search, Edit, User, Building2, Phone, Mail, Loader2, Users, Upload, X, Camera, Cpu, Trash2 } from 'lucide-react'
+import { Plus, Search, Edit, User, Building2, Phone, Mail, Loader2, Users, Upload, X, Camera, Cpu, Trash2, Calendar } from 'lucide-react'
 import Image from 'next/image'
 
 // Vordefinierte Rollen
@@ -48,6 +48,7 @@ export default function TeamPage() {
     department: '',
     email: '',
     avatarUrl: '',
+    calendlyUrl: '',
   })
 
   // Form state for editing team member
@@ -58,6 +59,7 @@ export default function TeamPage() {
     department: string
     email: string
     avatarUrl: string
+    calendlyUrl: string
   } | null>(null)
 
   const filteredMembers = (teamMembers || []).filter((member: any) =>
@@ -108,7 +110,7 @@ export default function TeamPage() {
       })
       mutate()
       setShowNewMemberModal(false)
-      setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '' })
+      setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '', calendlyUrl: '' })
     } catch (error) {
       console.error('Error creating team member:', error)
     } finally {
@@ -130,6 +132,7 @@ export default function TeamPage() {
           department: editMember.department,
           email: editMember.email,
           avatarUrl: editMember.avatarUrl,
+          calendlyUrl: editMember.calendlyUrl,
         }),
       })
       mutate()
@@ -164,6 +167,7 @@ export default function TeamPage() {
       department: member.department || '',
       email: member.email || '',
       avatarUrl: member.avatarUrl || '',
+      calendlyUrl: member.calendlyUrl || '',
     })
     setShowEditMemberModal(true)
   }
@@ -341,7 +345,7 @@ export default function TeamPage() {
                 <button
                   onClick={() => {
                     setShowNewMemberModal(false)
-                    setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '' })
+                    setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '', calendlyUrl: '' })
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -448,13 +452,27 @@ export default function TeamPage() {
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kalender-Link</label>
+                  <input
+                    type="url"
+                    placeholder="https://calendly.com/max-mustermann"
+                    value={newMember.calendlyUrl}
+                    onChange={(e) => setNewMember({ ...newMember, calendlyUrl: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Link für Terminbuchung (z.B. Calendly, Cal.com)
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
                 <button
                   onClick={() => {
                     setShowNewMemberModal(false)
-                    setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '' })
+                    setNewMember({ name: '', role: '', department: '', email: '', avatarUrl: '', calendlyUrl: '' })
                   }}
                   className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
@@ -594,6 +612,20 @@ export default function TeamPage() {
                     onChange={(e) => setEditMember({ ...editMember, email: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kalender-Link</label>
+                  <input
+                    type="url"
+                    placeholder="https://calendly.com/max-mustermann"
+                    value={editMember.calendlyUrl}
+                    onChange={(e) => setEditMember({ ...editMember, calendlyUrl: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Link für Terminbuchung (z.B. Calendly, Cal.com)
+                  </p>
                 </div>
               </div>
 

@@ -11,7 +11,6 @@ import { useCustomer } from '@/hooks/use-customers'
 import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/utils'
 import {
-  Map,
   Calendar,
   Target,
   CheckCircle2,
@@ -36,10 +35,10 @@ export default function RoadmapPage() {
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'hoch' | 'mittel' | 'niedrig'>('all')
 
   const statusConfig = {
-    geplant: { label: 'Geplant', color: 'bg-gray-100', textColor: 'text-gray-600', icon: Calendar },
-    in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100', textColor: 'text-blue-600', icon: Clock },
-    im_test: { label: 'Im Test', color: 'bg-purple-100', textColor: 'text-purple-600', icon: FlaskConical },
-    abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100', textColor: 'text-green-600', icon: CheckCircle2 },
+    geplant: { label: 'Geplant', color: 'bg-gray-100', textColor: 'text-gray-600', icon: Calendar, columnColor: 'border-gray-300' },
+    in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100', textColor: 'text-blue-600', icon: Clock, columnColor: 'border-blue-400' },
+    im_test: { label: 'Im Test', color: 'bg-purple-100', textColor: 'text-purple-600', icon: FlaskConical, columnColor: 'border-purple-400' },
+    abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100', textColor: 'text-green-600', icon: CheckCircle2, columnColor: 'border-green-400' },
   }
 
   const priorityConfig = {
@@ -159,31 +158,16 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
         )}
 
         {/* Summary Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Gesamtfortschritt</p>
-                  <p className="text-2xl font-bold">{totalProgress}%</p>
-                </div>
-                <div className="rounded-lg bg-primary-100 p-3">
-                  <Map className="h-6 w-6 text-primary-600" />
-                </div>
-              </div>
-              <Progress value={totalProgress} size="sm" className="mt-3" />
-            </CardContent>
-          </Card>
-
+        <div className="mb-6 grid gap-4 md:grid-cols-5">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Geplant</p>
-                  <p className="text-2xl font-bold text-gray-600">{itemsByStatus.geplant.length}</p>
+                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.geplant.length}</p>
                 </div>
                 <div className="rounded-lg bg-gray-100 p-3">
-                  <Calendar className="h-6 w-6 text-gray-600" />
+                  <Calendar className="h-6 w-6 text-gray-500" />
                 </div>
               </div>
             </CardContent>
@@ -194,10 +178,10 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">In Arbeit</p>
-                  <p className="text-2xl font-bold text-blue-600">{itemsByStatus.in_arbeit.length}</p>
+                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.in_arbeit.length}</p>
                 </div>
-                <div className="rounded-lg bg-blue-100 p-3">
-                  <Clock className="h-6 w-6 text-blue-600" />
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <Clock className="h-6 w-6 text-gray-500" />
                 </div>
               </div>
             </CardContent>
@@ -208,10 +192,10 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Im Test</p>
-                  <p className="text-2xl font-bold text-purple-600">{itemsByStatus.im_test.length}</p>
+                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.im_test.length}</p>
                 </div>
-                <div className="rounded-lg bg-purple-100 p-3">
-                  <FlaskConical className="h-6 w-6 text-purple-600" />
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <FlaskConical className="h-6 w-6 text-gray-500" />
                 </div>
               </div>
             </CardContent>
@@ -222,10 +206,10 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Abgeschlossen</p>
-                  <p className="text-2xl font-bold text-green-600">{itemsByStatus.abgeschlossen.length}</p>
+                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.abgeschlossen.length}</p>
                 </div>
-                <div className="rounded-lg bg-green-100 p-3">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <CheckCircle2 className="h-6 w-6 text-gray-500" />
                 </div>
               </div>
             </CardContent>
@@ -236,10 +220,10 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Ausstehend</p>
-                  <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
+                  <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
                 </div>
-                <div className="rounded-lg bg-yellow-100 p-3">
-                  <FileCheck className="h-6 w-6 text-yellow-600" />
+                <div className="rounded-lg bg-gray-100 p-3">
+                  <FileCheck className="h-6 w-6 text-gray-500" />
                 </div>
               </div>
             </CardContent>
@@ -297,12 +281,11 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
 
               return (
                 <div key={status} className="space-y-4">
-                  <div className={`flex items-center gap-2 rounded-lg p-3 ${config.color}`}>
-                    <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
-                    <h3 className={`font-semibold ${config.textColor}`}>{config.label}</h3>
-                    <Badge variant="secondary" className="ml-auto">
+                  <div className={`flex items-center justify-between mb-3 pb-2 border-b-2 ${config.columnColor}`}>
+                    <span className="font-medium text-gray-700">{config.label}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
                       {items.length}
-                    </Badge>
+                    </span>
                   </div>
 
                   <div className="space-y-3">
