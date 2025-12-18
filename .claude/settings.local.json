@@ -28,7 +28,8 @@
       "Bash(wc:*)",
       "Bash(python3:*)",
       "Bash(grep:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(sips:*)"
     ]
   }
 }

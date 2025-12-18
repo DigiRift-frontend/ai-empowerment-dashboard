@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,6 @@ import {
   Calendar,
   Target,
   CheckCircle2,
-  Clock,
   User,
   Download,
   FileText,
@@ -29,14 +28,16 @@ import {
   ExternalLink,
   PlayCircle,
   BookOpen,
-  Info,
+  Settings,
 } from 'lucide-react'
 import { Module, TestFeedback, AcceptanceCriterion } from '@/types'
 
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const projectId = params.id as string
+  const fromModules = searchParams.get('from') === 'modules'
   const { customerId } = useAuth()
   const { customer } = useCustomer(customerId || '')
 
@@ -356,11 +357,11 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
         {/* Back Button */}
         <Button
           variant="ghost"
-          onClick={() => router.push('/roadmap')}
+          onClick={() => router.push(fromModules ? '/modules' : '/roadmap')}
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Zurück zur Roadmap
+          {fromModules ? 'Zurück zur Modulübersicht' : 'Zurück zur Roadmap'}
         </Button>
 
         {/* Alert for pending acceptance */}
@@ -480,99 +481,6 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                 )}
               </CardContent>
             </Card>
-
-            {/* Instructions Section - Show when there's any documentation */}
-            {(project.videoUrl || project.instructions || project.manualUrl) && (
-              <Card className="border-blue-200">
-                <CardHeader className="bg-blue-50">
-                  <CardTitle className="flex items-center gap-2 text-blue-800">
-                    <Info className="h-5 w-5" />
-                    Anleitung & Dokumentation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                  {/* Video Link with Thumbnail */}
-                  {project.videoUrl && (
-                    <div className="rounded-lg border border-blue-200 overflow-hidden">
-                      <a
-                        href={project.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block relative group"
-                      >
-                        {/* Video Thumbnail */}
-                        <div className="relative aspect-video bg-gradient-to-br from-blue-600 to-blue-800">
-                          <img
-                            src="/images/video-thumbnail.jpg"
-                            alt="Video Anleitung"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // Hide image if not found, show gradient background
-                              (e.target as HTMLImageElement).style.display = 'none'
-                            }}
-                          />
-                          {/* Play Button Overlay */}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg group-hover:scale-110 transition-transform">
-                              <PlayCircle className="h-10 w-10 text-blue-600 ml-1" />
-                            </div>
-                          </div>
-                        </div>
-                      </a>
-                      <div className="bg-blue-50 p-4">
-                        <h4 className="font-medium text-blue-900">Video-Anleitung</h4>
-                        <p className="text-sm text-blue-700 mt-1">
-                          Klicken Sie auf das Video, um zu verstehen wie Sie das Modul verwenden.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Text Instructions */}
-                  {project.instructions && (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                      <div className="flex items-start gap-3">
-                        <FileText className="h-6 w-6 text-gray-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">Anleitung</h4>
-                          <div className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
-                            {project.instructions}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Manual/Handbook Download */}
-                  {project.manualUrl && (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                      <div className="flex items-start gap-3">
-                        <BookOpen className="h-6 w-6 text-green-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <h4 className="font-medium text-green-900">Handbuch / Dokumentation</h4>
-                          {project.manualFilename && (
-                            <p className="text-sm text-green-700 mt-1">
-                              {project.manualFilename}
-                            </p>
-                          )}
-                          <p className="text-sm text-green-600 mt-1">
-                            Laden Sie das Handbuch herunter für eine ausführliche Anleitung.
-                          </p>
-                          <a
-                            href={project.manualUrl}
-                            download={project.manualFilename || 'Handbuch.pdf'}
-                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-                          >
-                            <Download className="h-4 w-4" />
-                            Handbuch herunterladen
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
 
             {/* Test Feedback Section - Only shown when in test */}
             {isInTest && (
@@ -825,6 +733,155 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </Card>
             )}
 
+            {/* Projekt-Info Card */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Projekt-Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Software Link */}
+                {project.softwareUrl && (
+                  <a
+                    href={project.softwareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3 hover:bg-primary-100 transition-colors"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600">
+                      <ExternalLink className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-primary-900">Projekt öffnen</p>
+                      <p className="text-xs text-primary-700">Software im Browser starten</p>
+                    </div>
+                  </a>
+                )}
+
+                {/* Progress - Only show if not completed and not planned */}
+                {project.status !== 'abgeschlossen' && project.status !== 'geplant' && (
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-600">Fortschritt</span>
+                      <span className="font-semibold text-gray-900">{project.progress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary-500 transition-all"
+                        style={{ width: `${project.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Maintenance Points */}
+                <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100">
+                      <Settings className="h-4 w-4 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        {project.status === 'abgeschlossen' ? 'Wartung/Monat' : 'Voraussichtliche Wartung'}
+                      </p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {project.monthlyMaintenancePoints || 0} Punkte
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Internal Contact */}
+                {project.assignee && (
+                  <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                      <User className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Ihr Ansprechpartner</p>
+                      <p className="text-sm font-medium text-gray-900">{project.assignee.name}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Video & Dokumentation - Only show if any exists */}
+            {(project.videoUrl || project.manualUrl || project.instructions) && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Medien & Anleitungen</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Video Thumbnail */}
+                  {project.videoUrl && (
+                    <a
+                      href={project.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg overflow-hidden border border-gray-200 hover:border-primary-300 hover:shadow-md transition-all group"
+                    >
+                      <div className="relative aspect-video bg-gray-100">
+                        <img
+                          src={project.videoThumbnail || '/images/video-thumbnail.jpg'}
+                          alt="Erklärvideo"
+                          className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/video-placeholder.jpg'
+                          }}
+                        />
+                      </div>
+                      <div className="p-3 bg-gray-50">
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <PlayCircle className="h-4 w-4 text-primary-600" />
+                          Erklärvideo ansehen
+                        </p>
+                      </div>
+                    </a>
+                  )}
+
+                  {/* Manual Download */}
+                  {project.manualUrl && (
+                    <a
+                      href={project.manualUrl}
+                      download={project.manualFilename || 'Handbuch.pdf'}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 hover:border-primary-300 hover:bg-gray-50 transition-all"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
+                        <BookOpen className="h-5 w-5 text-red-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">Handbuch</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {project.manualFilename || 'PDF herunterladen'}
+                        </p>
+                      </div>
+                      <Download className="h-4 w-4 text-gray-400" />
+                    </a>
+                  )}
+
+                  {/* Text Instructions - Collapsed by default */}
+                  {project.instructions && (
+                    <details className="rounded-lg border border-gray-200 overflow-hidden">
+                      <summary className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                          <FileText className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">Kurzanleitung</p>
+                          <p className="text-xs text-gray-500">Klicken zum Anzeigen</p>
+                        </div>
+                      </summary>
+                      <div className="p-3 pt-0 border-t border-gray-100 bg-gray-50">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {project.instructions}
+                        </p>
+                      </div>
+                    </details>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Acceptance Status */}
             <Card>
               <CardHeader>
@@ -949,26 +1006,6 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </CardContent>
             </Card>
 
-            {/* Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Aktionen</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={generatePDF}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Projekt als PDF exportieren
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Änderungshistorie
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

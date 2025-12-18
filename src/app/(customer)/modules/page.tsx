@@ -1,32 +1,31 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Header } from '@/components/layout/header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCustomer } from '@/hooks/use-customers'
 import { useAuth } from '@/hooks/use-auth'
-import { formatDate } from '@/lib/utils'
 import {
   Cpu,
   Settings,
   Zap,
   Wrench,
   Filter,
-  Clock,
-  Calendar,
   User,
   ExternalLink,
   Loader2,
+  ChevronRight,
 } from 'lucide-react'
 import { ModuleStatus } from '@/types'
 
 export default function ModulesPage() {
+  const router = useRouter()
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
   const [filter, setFilter] = useState<ModuleStatus | 'all'>('all')
-  const [selectedModule, setSelectedModule] = useState<any | null>(null)
 
   const statusConfig = {
     geplant: { label: 'Geplant', variant: 'secondary' as const, icon: Settings, color: 'bg-gray-500' },
@@ -142,245 +141,76 @@ export default function ModulesPage() {
           </div>
         </div>
 
-        {/* Modules Grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            {filteredModules.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Cpu className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Keine Module in dieser Kategorie</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredModules.map((mod: any) => {
-                const config = statusConfig[mod.status as keyof typeof statusConfig] || statusConfig.geplant
-                const StatusIcon = config.icon
-
-                return (
-                  <Card
-                    key={mod.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedModule?.id === mod.id ? 'border-primary-500 ring-2 ring-primary-100' : ''
-                    }`}
-                    onClick={() => setSelectedModule(mod)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          <div className={`rounded-lg p-3 ${config.color}`}>
-                            <Cpu className="h-6 w-6 text-white" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-semibold text-gray-900">{mod.name}</h3>
-                              <Badge variant={config.variant}>
-                                <StatusIcon className="mr-1 h-3 w-3" />
-                                {config.label}
-                              </Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-gray-600">{mod.description}</p>
-
-                            {/* Assignee Display */}
-                            <div className="mt-3 flex items-center gap-2">
-                              <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
-                                <User className="h-3 w-3" />
-                                <span>{mod.assignee?.name || 'Nicht zugewiesen'}</span>
-                              </div>
-                              {mod.softwareUrl && (
-                                <a
-                                  href={mod.softwareUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-200"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  <span>Software öffnen</span>
-                                </a>
-                              )}
-                            </div>
-
-                            <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                <span>Erstellt: {formatDate(mod.createdAt)}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                <span>Aktualisiert: {formatDate(mod.updatedAt)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500">Wartung/Monat</p>
-                          <p className="text-lg font-bold text-gray-900">{mod.monthlyMaintenancePoints} Pkt.</p>
-                        </div>
-                      </div>
-
-                      {/* History Preview */}
-                      {mod.historyEntries && mod.historyEntries.length > 0 && (
-                        <div className="mt-4 border-t border-gray-100 pt-4">
-                          <p className="mb-2 text-xs font-medium uppercase text-gray-400">Letzte Aktivität</p>
-                          <div className="flex items-center justify-between rounded-lg bg-gray-50 p-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600">{mod.historyEntries[0].description}</span>
-                            </div>
-                            <span className="text-xs text-gray-500">{formatDate(mod.historyEntries[0].date)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })
-            )}
-          </div>
-
-          {/* Module Details Sidebar */}
-          <div className="space-y-6">
-            {selectedModule ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Modul Details</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Name</p>
-                        <p className="font-medium">{selectedModule.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Beschreibung</p>
-                        <p className="text-sm">{selectedModule.description}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Status</p>
-                        <Badge
-                          variant={statusConfig[selectedModule.status as keyof typeof statusConfig]?.variant || 'secondary'}
-                          className="mt-1"
-                        >
-                          {statusConfig[selectedModule.status as keyof typeof statusConfig]?.label || selectedModule.status}
-                        </Badge>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Monatliche Wartung</p>
-                        <p className="font-medium">{selectedModule.monthlyMaintenancePoints} Punkte</p>
-                      </div>
-                      {selectedModule.softwareUrl && (
-                        <div>
-                          <p className="text-sm text-gray-500">Software</p>
-                          <a
-                            href={selectedModule.softwareUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            Software öffnen
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Responsible Person Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5 text-gray-400" />
-                      Verantwortlicher
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-                        <User className="h-5 w-5 text-primary-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {selectedModule.assignee?.name || 'Nicht zugewiesen'}
-                        </p>
-                        {selectedModule.assignee && (
-                          <p className="text-xs text-gray-500">
-                            {selectedModule.assignee.role}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* History */}
-                {selectedModule.historyEntries && selectedModule.historyEntries.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Änderungshistorie</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {selectedModule.historyEntries.map((entry: any) => (
-                          <div
-                            key={entry.id}
-                            className="flex items-start gap-3 border-l-2 border-primary-200 pl-3"
-                          >
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{entry.action}</p>
-                              <p className="text-sm text-gray-600">{entry.description}</p>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                                <span>{formatDate(entry.date)}</span>
-                                {entry.pointsUsed && (
-                                  <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                                    {entry.pointsUsed} Pkt.
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <Cpu className="mb-4 h-12 w-12 text-gray-300" />
-                  <p className="text-gray-500">Wählen Sie ein Modul aus, um Details anzuzeigen</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Maintenance Overview */}
+        {/* Modules List */}
+        <div className="space-y-4">
+          {filteredModules.length === 0 ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Wartungsübersicht</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {modules
-                    .filter((m: any) => m.monthlyMaintenancePoints > 0)
-                    .map((mod: any) => (
-                      <div key={mod.id} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">{mod.name}</span>
-                        <span className="font-medium">{mod.monthlyMaintenancePoints} Pkt.</span>
-                      </div>
-                    ))}
-                  <div className="border-t border-gray-200 pt-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">Gesamt</span>
-                      <span className="text-lg font-bold text-primary-600">{totalMaintenancePoints} Pkt.</span>
-                    </div>
-                  </div>
-                </div>
+              <CardContent className="py-12 text-center">
+                <Cpu className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">Keine Module in dieser Kategorie</p>
               </CardContent>
             </Card>
-          </div>
+          ) : (
+            filteredModules.map((mod: any) => {
+              const config = statusConfig[mod.status as keyof typeof statusConfig] || statusConfig.geplant
+              const StatusIcon = config.icon
+
+              return (
+                <Card
+                  key={mod.id}
+                  className="cursor-pointer transition-all hover:shadow-md hover:border-primary-300"
+                  onClick={() => router.push(`/roadmap/${mod.id}?from=modules`)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className={`rounded-lg p-3 ${config.color}`}>
+                          <Cpu className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-lg font-semibold text-gray-900">{mod.name}</h3>
+                            <Badge variant={config.variant}>
+                              <StatusIcon className="mr-1 h-3 w-3" />
+                              {config.label}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600 line-clamp-2">{mod.description}</p>
+
+                          <div className="mt-3 flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600">
+                              <User className="h-3 w-3" />
+                              <span>{mod.assignee?.name || 'Nicht zugewiesen'}</span>
+                            </div>
+                            {mod.monthlyMaintenancePoints > 0 && (
+                              <div className="flex items-center gap-1.5 rounded-full bg-yellow-100 px-2.5 py-1 text-xs text-yellow-700">
+                                <Settings className="h-3 w-3" />
+                                <span>{mod.monthlyMaintenancePoints} Pkt./Monat</span>
+                              </div>
+                            )}
+                            {mod.softwareUrl && (
+                              <a
+                                href={mod.softwareUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-200"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>Software öffnen</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <ChevronRight className="h-5 w-5 text-gray-400 shrink-0 ml-4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
         </div>
       </div>
     </div>
