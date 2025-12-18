@@ -117,7 +117,7 @@ AI EMPOWERMENT PROGRAMM - PROJEKTSPEZIFIKATION
 Kunde: ${mockCustomer.companyName}
 Erstellt: ${formatDate(new Date().toISOString())}
 
-PROJEKT: ${project.title}
+PROJEKT: ${project.name}
 --------------------------
 ${project.description}
 
@@ -147,7 +147,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `Projekt_${project.title.replace(/\s+/g, '_')}_Spezifikation.txt`
+    a.download = `Projekt_${project.name.replace(/\s+/g, '_')}_Spezifikation.txt`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -162,7 +162,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
-        title={project.title}
+        title={project.name}
         subtitle="Projektdetails und Akzeptanzkriterien"
       />
 
@@ -198,7 +198,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               <p className="font-medium text-purple-800">Dieses Projekt befindet sich im Test</p>
               <p className="mt-1 text-sm text-purple-700">
                 Bitte testen Sie die Funktionalität und geben Sie Feedback, wenn etwas nicht passt.
-                Wenn alles funktioniert, klicken Sie auf "Test abgeschlossen".
+                Wenn alles funktioniert, klicken Sie auf &quot;Test abgeschlossen&quot;.
               </p>
             </div>
           </div>
@@ -399,26 +399,26 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                       <div
                         key={criterion.id}
                         className={`flex items-start gap-3 rounded-lg border p-4 ${
-                          criterion.accepted || accepted
+                          accepted
                             ? 'border-green-200 bg-green-50'
                             : 'border-gray-200 bg-white'
                         }`}
                       >
                         <div
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                            criterion.accepted || accepted
+                            accepted
                               ? 'bg-green-500 text-white'
                               : 'bg-gray-200 text-gray-600'
                           }`}
                         >
-                          {criterion.accepted || accepted ? (
+                          {accepted ? (
                             <Check className="h-4 w-4" />
                           ) : (
                             <span className="text-xs font-medium">{index + 1}</span>
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className={`text-sm ${criterion.accepted || accepted ? 'text-green-800' : 'text-gray-900'}`}>
+                          <p className={`text-sm ${accepted ? 'text-green-800' : 'text-gray-900'}`}>
                             {criterion.description}
                           </p>
                         </div>

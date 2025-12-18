@@ -19,10 +19,12 @@ import {
   Copy,
   Check,
   Calendar,
+  Coins,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Punkteübersicht', href: '/budget', icon: Coins },
   { name: 'Roadmap', href: '/roadmap', icon: Map },
   { name: 'Module', href: '/modules', icon: Cpu },
   { name: 'Schulungen', href: '/schulungen', icon: GraduationCap },

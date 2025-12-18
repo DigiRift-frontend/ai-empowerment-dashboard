@@ -79,7 +79,7 @@ Gesamtfortschritt: ${totalProgress}%
 ${'='.repeat(50)}
 
 ${mockRoadmapItems.map((item) => `
-PROJEKT: ${item.title}
+PROJEKT: ${item.name}
 ${'-'.repeat(40)}
 Beschreibung: ${item.description}
 Status: ${statusConfig[item.status].label}
@@ -302,7 +302,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                               )}
 
                               <div className="mb-2 flex items-start justify-between">
-                                <h4 className="font-medium text-gray-900">{item.title}</h4>
+                                <h4 className="font-medium text-gray-900">{item.name}</h4>
                                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
                                   {priorityConfig[item.priority].label}
                                 </span>
@@ -377,7 +377,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
 
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-gray-900">{item.title}</h4>
+                            <h4 className="font-medium text-gray-900">{item.name}</h4>
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority].color}`}>
                               {priorityConfig[item.priority].label}
                             </span>
@@ -452,7 +452,7 @@ ${item.acceptanceCriteria?.map((c, i) => `  ${i + 1}. ${c.description}`).join('\
                           <div className="flex-1 rounded-lg border border-gray-200 bg-white p-4 transition-all group-hover:shadow-md group-hover:border-primary-300">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-gray-900">{item.title}</h4>
+                                <h4 className="font-medium text-gray-900">{item.name}</h4>
                                 {item.acceptanceStatus === 'ausstehend' && (
                                   <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                                     <AlertTriangle className="h-3 w-3" />

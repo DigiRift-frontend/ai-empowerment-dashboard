@@ -12,7 +12,13 @@
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
       "Bash(PORT=3004 npm run dev:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(xargs:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git diff:*)",
+      "Bash(npm run dev)"
     ]
   }
 }

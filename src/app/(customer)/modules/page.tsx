@@ -34,13 +34,14 @@ export default function ModulesPage() {
     : modules.filter((m) => m.status === filter)
 
   const statusConfig = {
-    setup: { label: 'Setup', variant: 'warning' as const, icon: Settings, color: 'bg-yellow-500' },
-    live: { label: 'Live', variant: 'success' as const, icon: Zap, color: 'bg-green-500' },
-    optimierung: { label: 'Optimierung', variant: 'default' as const, icon: Wrench, color: 'bg-blue-500' },
+    geplant: { label: 'Geplant', variant: 'secondary' as const, icon: Settings, color: 'bg-gray-500' },
+    'in-arbeit': { label: 'In Arbeit', variant: 'warning' as const, icon: Wrench, color: 'bg-blue-500' },
+    'im-test': { label: 'Im Test', variant: 'default' as const, icon: Settings, color: 'bg-yellow-500' },
+    abgeschlossen: { label: 'Live', variant: 'success' as const, icon: Zap, color: 'bg-green-500' },
   }
 
   const totalMaintenancePoints = modules
-    .filter((m) => m.status === 'live' || m.status === 'optimierung')
+    .filter((m) => m.status === 'abgeschlossen')
     .reduce((sum, m) => sum + m.monthlyMaintenancePoints, 0)
 
   const getModuleHistory = (moduleId: string): ModuleHistoryEntry[] => {
@@ -87,7 +88,7 @@ export default function ModulesPage() {
                 <div>
                   <p className="text-sm text-gray-500">Live</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {modules.filter((m) => m.status === 'live').length}
+                    {modules.filter((m) => m.status === 'abgeschlossen').length}
                   </p>
                 </div>
                 <div className="rounded-lg bg-green-100 p-3">
@@ -101,9 +102,9 @@ export default function ModulesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">In Optimierung</p>
+                  <p className="text-sm text-gray-500">In Arbeit</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {modules.filter((m) => m.status === 'optimierung').length}
+                    {modules.filter((m) => m.status === 'in-arbeit' || m.status === 'im-test').length}
                   </p>
                 </div>
                 <div className="rounded-lg bg-blue-100 p-3">
@@ -133,7 +134,7 @@ export default function ModulesPage() {
           <Filter className="h-4 w-4 text-gray-400" />
           <span className="text-sm text-gray-500">Filter:</span>
           <div className="flex gap-2">
-            {(['all', 'live', 'optimierung', 'setup'] as const).map((status) => (
+            {(['all', 'abgeschlossen', 'in-arbeit', 'im-test', 'geplant'] as const).map((status) => (
               <Button
                 key={status}
                 variant={filter === status ? 'default' : 'outline'}

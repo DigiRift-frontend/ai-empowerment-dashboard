@@ -40,7 +40,7 @@ export interface Customer {
 }
 
 // Punkte & Transaktionen
-export type PointCategory = 'entwicklung' | 'wartung' | 'schulung'
+export type PointCategory = 'entwicklung' | 'wartung' | 'schulung' | 'beratung' | 'analyse'
 
 export interface PointTransaction {
   id: string
@@ -63,32 +63,10 @@ export interface ExternalCost {
   unit: string
 }
 
-// Module
-export type ModuleStatus = 'setup' | 'live' | 'optimierung'
-
-export interface Module {
-  id: string
-  name: string
-  description: string
-  status: ModuleStatus
-  monthlyMaintenancePoints: number
-  assigneeId?: string
-  softwareUrl?: string // Optionaler Link zur Software
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ModuleHistoryEntry {
-  id: string
-  moduleId: string
-  date: string
-  action: string
-  description: string
-  pointsUsed?: number
-}
-
-// Roadmap & Projekte
-export type RoadmapStatus = 'geplant' | 'in-arbeit' | 'im-test' | 'abgeschlossen'
+// Module Status (Kanban-Spalten)
+export type ModuleStatus = 'geplant' | 'in-arbeit' | 'im-test' | 'abgeschlossen'
+export type ModulePriority = 'hoch' | 'mittel' | 'niedrig'
+export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
 
 // Test Feedback
 export interface TestFeedback {
@@ -97,8 +75,6 @@ export interface TestFeedback {
   feedback: string
   resolved: boolean
 }
-export type RoadmapPriority = 'hoch' | 'mittel' | 'niedrig'
-export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
 
 export interface AcceptanceCriterion {
   id: string
@@ -106,18 +82,23 @@ export interface AcceptanceCriterion {
   accepted?: boolean
 }
 
-export interface RoadmapItem {
+// Unified Module (combines old Module + RoadmapItem)
+export interface Module {
   id: string
-  title: string
+  name: string
   description: string
-  status: RoadmapStatus
-  priority: RoadmapPriority
+  // Kanban Status
+  status: ModuleStatus
+  priority: ModulePriority
   progress: number // 0-100
+  // Termine
   startDate?: string
   targetDate?: string
   completedDate?: string
-  useCaseId?: string
-  // Zugewiesene Person
+  // Wartung & Kosten
+  monthlyMaintenancePoints: number
+  softwareUrl?: string // Link zur laufenden Software (wenn live)
+  // Zugewiesene Person (intern)
   assigneeId?: string
   // Akzeptanzkriterien
   acceptanceCriteria?: AcceptanceCriterion[]
@@ -128,6 +109,91 @@ export interface RoadmapItem {
   testFeedback?: TestFeedback[]
   testCompletedAt?: string
   testCompletedBy?: string
+  // Meta
+  createdAt: string
+  updatedAt: string
+  // Sichtbar in Kunden-Roadmap?
+  showInRoadmap: boolean
+  roadmapOrder?: number // Reihenfolge in der Roadmap
+}
+
+// Legacy alias for backward compatibility
+export type RoadmapItem = Module
+export type RoadmapStatus = ModuleStatus
+export type RoadmapPriority = ModulePriority
+
+export interface ModuleHistoryEntry {
+  id: string
+  moduleId: string
+  date: string
+  action: string
+  description: string
+  pointsUsed?: number
+}
+
+// Schulungskatalog
+export interface Schulung {
+  id: string
+  title: string
+  description: string
+  duration: string // z.B. "2 Stunden", "1 Tag"
+  points: number // Punktekosten
+  category: 'grundlagen' | 'fortgeschritten' | 'spezialisiert'
+  isCustom?: boolean // Selbst definierte Schulung
+}
+
+// Kunden-Roadmap (was der Kunde sieht)
+export interface CustomerRoadmapItem {
+  id: string
+  type: 'modul' | 'schulung'
+  moduleId?: string // Referenz zum Modul
+  schulungId?: string // Referenz zur Schulung
+  customTitle?: string // Für custom Schulungen
+  order: number // Reihenfolge
+  targetDate?: string
+}
+
+export interface CustomerRoadmap {
+  id: string
+  customerId: string
+  items: CustomerRoadmapItem[]
+  updatedAt: string
+}
+
+// Schulung Serie (gruppierte Schulungen)
+export interface SchulungSerie {
+  id: string
+  title: string
+  description: string
+  schulungIds: string[] // IDs der enthaltenen Schulungen in Reihenfolge
+  totalPoints: number // Summe aller Schulungspunkte
+  createdAt: string
+  updatedAt: string
+}
+
+// Kunden-Schulung-Zuweisung
+export interface CustomerSchulungAssignment {
+  id: string
+  customerId: string
+  schulungId?: string // Einzelne Schulung
+  serieId?: string // Oder Serie
+  status: 'geplant' | 'in-durchfuehrung' | 'abgeschlossen'
+  scheduledDate?: string
+  completedDate?: string
+  completedSchulungIds?: string[] // Für Serien: welche Schulungen sind bereits abgeschlossen
+}
+
+// Modul Template (für den Katalog)
+export interface ModuleTemplate {
+  id: string
+  name: string
+  description: string
+  category: string
+  estimatedPoints: number // Geschätzte Entwicklungspunkte
+  estimatedMaintenancePoints: number // Geschätzte monatliche Wartung
+  features: string[] // Liste der Features
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Milestone {
@@ -135,7 +201,7 @@ export interface Milestone {
   title: string
   date: string
   completed: boolean
-  roadmapItemId: string
+  moduleId: string
 }
 
 // Enablement

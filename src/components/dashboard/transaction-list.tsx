@@ -1,6 +1,6 @@
 import { PointTransaction } from '@/types'
 import { formatDate } from '@/lib/utils'
-import { Code, Wrench, GraduationCap } from 'lucide-react'
+import { Code, Wrench, GraduationCap, MessageSquare, ClipboardList } from 'lucide-react'
 
 interface TransactionListProps {
   transactions: PointTransaction[]
@@ -14,6 +14,8 @@ export function TransactionList({ transactions, limit }: TransactionListProps) {
     entwicklung: { icon: Code, color: 'bg-blue-100 text-blue-600', label: 'Entwicklung' },
     wartung: { icon: Wrench, color: 'bg-green-100 text-green-600', label: 'Wartung' },
     schulung: { icon: GraduationCap, color: 'bg-yellow-100 text-yellow-600', label: 'Schulung' },
+    beratung: { icon: MessageSquare, color: 'bg-purple-100 text-purple-600', label: 'Beratung' },
+    analyse: { icon: ClipboardList, color: 'bg-orange-100 text-orange-600', label: 'Analyse & PM' },
   }
 
   return (

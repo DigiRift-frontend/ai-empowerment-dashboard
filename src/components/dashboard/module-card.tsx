@@ -11,9 +11,10 @@ interface ModuleCardProps {
 
 export function ModuleCard({ module, onClick }: ModuleCardProps) {
   const statusConfig = {
-    setup: { label: 'Setup', variant: 'warning' as const, icon: Settings },
-    live: { label: 'Live', variant: 'success' as const, icon: Zap },
-    optimierung: { label: 'Optimierung', variant: 'default' as const, icon: Wrench },
+    geplant: { label: 'Geplant', variant: 'secondary' as const, icon: Settings },
+    'in-arbeit': { label: 'In Arbeit', variant: 'warning' as const, icon: Wrench },
+    'im-test': { label: 'Im Test', variant: 'default' as const, icon: Settings },
+    abgeschlossen: { label: 'Live', variant: 'success' as const, icon: Zap },
   }
 
   const config = statusConfig[module.status]

@@ -12,6 +12,7 @@ export function RoadmapItemCard({ item }: RoadmapItemProps) {
   const statusConfig = {
     geplant: { label: 'Geplant', variant: 'secondary' as const },
     'in-arbeit': { label: 'In Arbeit', variant: 'default' as const },
+    'im-test': { label: 'Im Test', variant: 'warning' as const },
     abgeschlossen: { label: 'Abgeschlossen', variant: 'success' as const },
   }
 
@@ -29,7 +30,7 @@ export function RoadmapItemCard({ item }: RoadmapItemProps) {
       <div className="mb-3 flex items-start justify-between">
         <div className="flex-1">
           <div className="mb-1 flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900">{item.title}</h3>
+            <h3 className="font-semibold text-gray-900">{item.name}</h3>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priority.color}`}>
               {priority.label}
             </span>

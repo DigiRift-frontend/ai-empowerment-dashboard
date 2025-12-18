@@ -182,7 +182,7 @@ export default function TeamPage() {
                             className="flex items-center justify-between rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50 hover:border-primary-200"
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate">{project.title}</p>
+                              <p className="font-medium text-gray-900 truncate">{project.name}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig[project.status].color}`}>
                                   {statusConfig[project.status].label}
@@ -228,7 +228,7 @@ export default function TeamPage() {
                       className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-3 transition-colors hover:bg-yellow-100"
                     >
                       <div>
-                        <p className="font-medium text-gray-900">{project.title}</p>
+                        <p className="font-medium text-gray-900">{project.name}</p>
                         <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig[project.status].color}`}>
                           {statusConfig[project.status].label}
                         </span>

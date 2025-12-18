@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const nextPlannedProject = mockRoadmapItems.find(i => i.status === 'geplant')
 
   // Aktive Module
-  const liveModules = mockModules.filter(m => m.status === 'live')
+  const liveModules = mockModules.filter(m => m.status === 'abgeschlossen')
 
   // Schulungen
   const upcomingWorkshop = mockWorkshops.find(w => w.status === 'geplant')
@@ -52,7 +52,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <Header
         title="AI Empowerment Programm"
-        badge={`Paket ${membership.tier}`}
       />
 
       <div className="p-6">
@@ -165,7 +164,7 @@ export default function DashboardPage() {
                       <Link key={project.id} href={`/roadmap/${project.id}`} className="block">
                         <div className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium text-gray-900">{project.title}</span>
+                            <span className="font-medium text-gray-900">{project.name}</span>
                             <Badge variant="secondary">{project.progress}%</Badge>
                           </div>
                           <Progress value={project.progress} size="sm" />
@@ -179,7 +178,7 @@ export default function DashboardPage() {
                       <Link href={`/roadmap/${nextPlannedProject.id}`} className="block">
                         <div className="rounded-lg border border-dashed border-gray-300 p-3 hover:bg-gray-50 transition-colors">
                           <div className="flex items-center justify-between">
-                            <span className="text-gray-600">{nextPlannedProject.title}</span>
+                            <span className="text-gray-600">{nextPlannedProject.name}</span>
                             <Badge variant="outline">Geplant</Badge>
                           </div>
                           <p className="text-xs text-gray-400 mt-1">
@@ -227,9 +226,9 @@ export default function DashboardPage() {
                         </div>
                       </Link>
                     ))}
-                    {mockModules.filter(m => m.status === 'setup').length > 0 && (
+                    {mockModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length > 0 && (
                       <div className="text-xs text-gray-500 mt-2">
-                        + {mockModules.filter(m => m.status === 'setup').length} Module im Setup
+                        + {mockModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length} Module in Arbeit
                       </div>
                     )}
                   </div>
