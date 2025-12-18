@@ -169,7 +169,7 @@ export const mockCustomerModules: Record<string, Module[]> = {
       id: 'mod3',
       name: 'E-Mail Klassifikation',
       description: 'Automatische Sortierung und Priorisierung von E-Mails',
-      status: 'im-test',
+      status: 'im_test',
       priority: 'mittel',
       progress: 90,
       monthlyMaintenancePoints: 6,
@@ -193,7 +193,7 @@ export const mockCustomerModules: Record<string, Module[]> = {
       id: 'mod4',
       name: 'Vertriebsprognose System',
       description: 'KI-basierte Vorhersage von Verkaufschancen und Lead-Scoring',
-      status: 'in-arbeit',
+      status: 'in_arbeit',
       priority: 'hoch',
       progress: 35,
       monthlyMaintenancePoints: 10,
@@ -260,7 +260,7 @@ export const mockCustomerModules: Record<string, Module[]> = {
       id: 'mod7',
       name: 'RAG Wissensdatenbank',
       description: 'Unternehmensweite KI-Wissensdatenbank',
-      status: 'in-arbeit',
+      status: 'in_arbeit',
       priority: 'hoch',
       progress: 60,
       monthlyMaintenancePoints: 20,
@@ -303,7 +303,7 @@ export const mockCustomerModules: Record<string, Module[]> = {
       id: 'mod9',
       name: 'Produktempfehlungen',
       description: 'KI-basierte Produktempfehlungen für den Online-Shop',
-      status: 'in-arbeit',
+      status: 'in_arbeit',
       priority: 'hoch',
       progress: 20,
       monthlyMaintenancePoints: 10,
@@ -379,7 +379,7 @@ export const mockCustomerRoadmap: Record<string, Array<{
   id: string
   title: string
   description: string
-  status: 'geplant' | 'in-arbeit' | 'im-test' | 'abgeschlossen'
+  status: 'geplant' | 'in_arbeit' | 'im_test' | 'abgeschlossen'
   priority: 'hoch' | 'mittel' | 'niedrig'
   progress: number
   assigneeId?: string
@@ -495,6 +495,7 @@ export interface AdminMessage {
   sentBy: string
   actionRequired: boolean
   read: boolean
+  messageType?: 'normal' | 'status_update'
 }
 
 // Messages pro Kunde
@@ -608,7 +609,7 @@ export function getAdminStats() {
   const totalPointsUsed = mockCustomers.reduce((sum, c) => sum + c.membership.usedPoints, 0)
   const activeModules = Object.values(mockCustomerModules)
     .flat()
-    .filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length
+    .filter(m => m.status === 'in_arbeit' || m.status === 'im_test').length
   const pendingAcceptance = Object.values(mockCustomerModules)
     .flat()
     .filter(m => m.acceptanceStatus === 'ausstehend').length
@@ -751,7 +752,7 @@ export const customerSchulungAssignments: Record<string, CustomerSchulungAssignm
       id: 'csa1',
       customerId: '1',
       serieId: 'ser1',
-      status: 'in-durchfuehrung',
+      status: 'in_durchfuehrung',
       scheduledDate: '2024-07-01',
       completedSchulungIds: ['sch1', 'sch2'],
     },

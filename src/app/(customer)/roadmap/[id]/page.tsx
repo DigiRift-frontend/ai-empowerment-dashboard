@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { mockRoadmapItems, mockCustomer } from '@/lib/mock-data'
 import { formatDate } from '@/lib/utils'
+import { useCustomer } from '@/hooks/use-customers'
+import { useAuth } from '@/hooks/use-auth'
 import {
   ArrowLeft,
   Calendar,
@@ -21,29 +22,82 @@ import {
   Check,
   AlertTriangle,
   FlaskConical,
-  MessageSquare,
   Send,
   CheckCheck,
+  X,
+  Loader2,
+  ExternalLink,
+  PlayCircle,
+  BookOpen,
+  Info,
 } from 'lucide-react'
-import { TestFeedback } from '@/types'
+import { Module, TestFeedback, AcceptanceCriterion } from '@/types'
 
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.id as string
+  const { customerId } = useAuth()
+  const { customer } = useCustomer(customerId || '')
 
-  const project = mockRoadmapItems.find((item) => item.id === projectId)
+  const [project, setProject] = useState<Module | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Acceptance state
   const [isAccepting, setIsAccepting] = useState(false)
-  const [accepted, setAccepted] = useState(project?.acceptanceStatus === 'akzeptiert')
+  const [isRejecting, setIsRejecting] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectComment, setRejectComment] = useState('')
 
   // Test feedback state
-  const [testFeedback, setTestFeedback] = useState<TestFeedback[]>(project?.testFeedback || [])
+  const [testFeedback, setTestFeedback] = useState<TestFeedback[]>([])
   const [newFeedback, setNewFeedback] = useState('')
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
   const [isCompletingTest, setIsCompletingTest] = useState(false)
   const [testCompleted, setTestCompleted] = useState(false)
 
-  if (!project) {
+  // Customer contact state
+  const [customerContactName, setCustomerContactName] = useState('')
+  const [isEditingContact, setIsEditingContact] = useState(false)
+  const [isSavingContact, setIsSavingContact] = useState(false)
+
+  // Fetch project data
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/modules/${projectId}`)
+        if (!response.ok) {
+          throw new Error('Projekt nicht gefunden')
+        }
+        const data = await response.json()
+        setProject(data)
+        setTestFeedback(data.testFeedback || [])
+        setTestCompleted(!!data.testCompletedAt)
+        setCustomerContactName(data.customerContactName || '')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Fehler beim Laden')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProject()
+  }, [projectId])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header title="Lädt..." />
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !project) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header title="Projekt nicht gefunden" />
@@ -60,8 +114,8 @@ export default function ProjectDetailPage() {
 
   const statusConfig = {
     geplant: { label: 'Geplant', variant: 'secondary' as const, color: 'bg-gray-100 text-gray-600' },
-    'in-arbeit': { label: 'In Arbeit', variant: 'default' as const, color: 'bg-blue-100 text-blue-600' },
-    'im-test': { label: 'Im Test', variant: 'default' as const, color: 'bg-purple-100 text-purple-600' },
+    in_arbeit: { label: 'In Arbeit', variant: 'default' as const, color: 'bg-blue-100 text-blue-600' },
+    im_test: { label: 'Im Test', variant: 'default' as const, color: 'bg-purple-100 text-purple-600' },
     abgeschlossen: { label: 'Abgeschlossen', variant: 'success' as const, color: 'bg-green-100 text-green-600' },
   }
 
@@ -74,39 +128,171 @@ export default function ProjectDetailPage() {
   const acceptanceConfig = {
     ausstehend: { label: 'Ausstehend', color: 'bg-yellow-100 text-yellow-700', icon: AlertTriangle },
     akzeptiert: { label: 'Akzeptiert', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-    abgelehnt: { label: 'Abgelehnt', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
+    abgelehnt: { label: 'Abgelehnt', color: 'bg-red-100 text-red-700', icon: X },
   }
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     setIsAccepting(true)
-    setTimeout(() => {
-      setAccepted(true)
+    try {
+      // Update module acceptance status
+      await fetch(`/api/modules/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acceptanceStatus: 'akzeptiert',
+          acceptedAt: new Date().toISOString(),
+          acceptedBy: customer?.name || 'Kunde',
+        }),
+      })
+
+      // Mark acceptance_required notifications as done
+      if (customer?.id) {
+        const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+        const notifications = await notificationsRes.json()
+        const acceptanceNotification = notifications.find(
+          (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
+            n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired
+        )
+        if (acceptanceNotification) {
+          await fetch(`/api/customers/${customer.id}/notifications/${acceptanceNotification.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionRequired: false }),
+          })
+        }
+      }
+
+      // Update local state
+      setProject(prev => prev ? {
+        ...prev,
+        acceptanceStatus: 'akzeptiert',
+        acceptedAt: new Date().toISOString(),
+        acceptedBy: customer?.name || 'Kunde',
+      } : null)
+    } catch (error) {
+      console.error('Error accepting criteria:', error)
+      alert('Fehler beim Bestätigen der Kriterien')
+    } finally {
       setIsAccepting(false)
-    }, 1500)
+    }
   }
 
-  const handleSubmitFeedback = () => {
+  const handleReject = async () => {
+    if (!rejectComment.trim()) {
+      alert('Bitte geben Sie einen Kommentar ein, warum Sie die Kriterien ablehnen.')
+      return
+    }
+
+    setIsRejecting(true)
+    try {
+      // Update module acceptance status
+      await fetch(`/api/modules/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acceptanceStatus: 'abgelehnt',
+        }),
+      })
+
+      // Send rejection message to admin
+      if (customer?.id) {
+        await fetch(`/api/customers/${customer.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `Akzeptanzkriterien abgelehnt: ${project.name}`,
+            content: `Der Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" abgelehnt.\n\nBegründung:\n${rejectComment}`,
+            from: customer.name,
+          }),
+        })
+
+        // Mark acceptance_required notifications as done
+        const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+        const notifications = await notificationsRes.json()
+        const acceptanceNotification = notifications.find(
+          (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
+            n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired
+        )
+        if (acceptanceNotification) {
+          await fetch(`/api/customers/${customer.id}/notifications/${acceptanceNotification.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionRequired: false }),
+          })
+        }
+      }
+
+      // Update local state
+      setProject(prev => prev ? { ...prev, acceptanceStatus: 'abgelehnt' } : null)
+      setShowRejectModal(false)
+      setRejectComment('')
+    } catch (error) {
+      console.error('Error rejecting criteria:', error)
+      alert('Fehler beim Ablehnen der Kriterien')
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
+  const handleSubmitFeedback = async () => {
     if (!newFeedback.trim()) return
     setIsSubmittingFeedback(true)
-    setTimeout(() => {
-      const feedback: TestFeedback = {
-        id: `tf${Date.now()}`,
-        date: new Date().toISOString(),
-        feedback: newFeedback,
-        resolved: false,
+    try {
+      const response = await fetch(`/api/modules/${projectId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback: newFeedback }),
+      })
+
+      if (response.ok) {
+        const savedFeedback = await response.json()
+        setTestFeedback([...testFeedback, savedFeedback])
+        setNewFeedback('')
       }
-      setTestFeedback([...testFeedback, feedback])
-      setNewFeedback('')
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+    } finally {
       setIsSubmittingFeedback(false)
-    }, 500)
+    }
   }
 
-  const handleCompleteTest = () => {
+  const handleCompleteTest = async () => {
     setIsCompletingTest(true)
-    setTimeout(() => {
+    try {
+      // Update module test status
+      await fetch(`/api/modules/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testCompletedAt: new Date().toISOString(),
+          testCompletedBy: customer?.name || 'Kunde',
+        }),
+      })
+
+      // Mark test_required notifications as done
+      if (customer?.id) {
+        const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+        const notifications = await notificationsRes.json()
+        const testNotification = notifications.find(
+          (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
+            n.type === 'test_required' && n.relatedProjectId === projectId && n.actionRequired
+        )
+        if (testNotification) {
+          await fetch(`/api/customers/${customer.id}/notifications/${testNotification.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionRequired: false }),
+          })
+        }
+      }
+
       setTestCompleted(true)
+    } catch (error) {
+      console.error('Error completing test:', error)
+      alert('Fehler beim Abschließen des Tests')
+    } finally {
       setIsCompletingTest(false)
-    }, 1500)
+    }
   }
 
   const generatePDF = () => {
@@ -114,7 +300,7 @@ export default function ProjectDetailPage() {
 AI EMPOWERMENT PROGRAMM - PROJEKTSPEZIFIKATION
 ===============================================
 
-Kunde: ${mockCustomer.companyName}
+Kunde: ${customer?.companyName || 'Unbekannt'}
 Erstellt: ${formatDate(new Date().toISOString())}
 
 PROJEKT: ${project.name}
@@ -127,17 +313,17 @@ ${project.startDate ? `Startdatum: ${formatDate(project.startDate)}` : ''}
 ${project.targetDate ? `Zieldatum: ${formatDate(project.targetDate)}` : ''}
 
 AKZEPTANZKRITERIEN:
-${project.acceptanceCriteria?.map((c, i) => `
+${project.acceptanceCriteria?.map((c: AcceptanceCriterion, i: number) => `
 ${i + 1}. ${c.description}
 `).join('') || 'Keine Kriterien definiert'}
 
-AKZEPTANZSTATUS: ${accepted ? 'Akzeptiert' : 'Ausstehend'}
+AKZEPTANZSTATUS: ${project.acceptanceStatus || 'Nicht festgelegt'}
 ${project.acceptedAt ? `Akzeptiert am: ${formatDate(project.acceptedAt)}` : ''}
 ${project.acceptedBy ? `Akzeptiert von: ${project.acceptedBy}` : ''}
 
 ${testFeedback.length > 0 ? `
 TEST-FEEDBACK:
-${testFeedback.map((tf, i) => `
+${testFeedback.map((tf: TestFeedback, i: number) => `
 ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : '[Offen]'}
 `).join('')}
 ` : ''}
@@ -152,12 +338,12 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
     URL.revokeObjectURL(url)
   }
 
-  const currentAcceptanceStatus = accepted ? 'akzeptiert' : (project.acceptanceStatus || 'ausstehend')
-  const acceptanceInfo = acceptanceConfig[currentAcceptanceStatus]
+  const currentAcceptanceStatus = project.acceptanceStatus || 'ausstehend'
+  const acceptanceInfo = acceptanceConfig[currentAcceptanceStatus as keyof typeof acceptanceConfig] || acceptanceConfig.ausstehend
   const AcceptanceIcon = acceptanceInfo.icon
 
-  const isInTest = project.status === 'im-test'
-  const hasUnresolvedFeedback = testFeedback.some(f => !f.resolved)
+  const isInTest = project.status === 'im_test'
+  const hasUnresolvedFeedback = testFeedback.some((f: TestFeedback) => !f.resolved)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -178,13 +364,26 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
         </Button>
 
         {/* Alert for pending acceptance */}
-        {currentAcceptanceStatus === 'ausstehend' && (
+        {currentAcceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
             <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-600" />
             <div>
               <p className="font-medium text-yellow-800">Ihre Bestätigung ist erforderlich</p>
               <p className="mt-1 text-sm text-yellow-700">
-                Bitte überprüfen Sie die Akzeptanzkriterien und bestätigen Sie diese, damit wir mit der Entwicklung beginnen können.
+                Bitte überprüfen Sie die Akzeptanzkriterien und bestätigen oder verwerfen Sie diese.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Alert for rejected */}
+        {currentAcceptanceStatus === 'abgelehnt' && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <X className="h-5 w-5 shrink-0 text-red-600" />
+            <div>
+              <p className="font-medium text-red-800">Akzeptanzkriterien abgelehnt</p>
+              <p className="mt-1 text-sm text-red-700">
+                Sie haben die Akzeptanzkriterien abgelehnt. Wir werden uns mit Ihnen in Verbindung setzen.
               </p>
             </div>
           </div>
@@ -200,6 +399,17 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                 Bitte testen Sie die Funktionalität und geben Sie Feedback, wenn etwas nicht passt.
                 Wenn alles funktioniert, klicken Sie auf &quot;Test abgeschlossen&quot;.
               </p>
+              {project.softwareUrl && (
+                <a
+                  href={project.softwareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Software zum Testen öffnen
+                </a>
+              )}
             </div>
           </div>
         )}
@@ -271,6 +481,99 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </CardContent>
             </Card>
 
+            {/* Instructions Section - Show when there's any documentation */}
+            {(project.videoUrl || project.instructions || project.manualUrl) && (
+              <Card className="border-blue-200">
+                <CardHeader className="bg-blue-50">
+                  <CardTitle className="flex items-center gap-2 text-blue-800">
+                    <Info className="h-5 w-5" />
+                    Anleitung & Dokumentation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  {/* Video Link with Thumbnail */}
+                  {project.videoUrl && (
+                    <div className="rounded-lg border border-blue-200 overflow-hidden">
+                      <a
+                        href={project.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block relative group"
+                      >
+                        {/* Video Thumbnail */}
+                        <div className="relative aspect-video bg-gradient-to-br from-blue-600 to-blue-800">
+                          <img
+                            src="/images/video-thumbnail.jpg"
+                            alt="Video Anleitung"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide image if not found, show gradient background
+                              (e.target as HTMLImageElement).style.display = 'none'
+                            }}
+                          />
+                          {/* Play Button Overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg group-hover:scale-110 transition-transform">
+                              <PlayCircle className="h-10 w-10 text-blue-600 ml-1" />
+                            </div>
+                          </div>
+                        </div>
+                      </a>
+                      <div className="bg-blue-50 p-4">
+                        <h4 className="font-medium text-blue-900">Video-Anleitung</h4>
+                        <p className="text-sm text-blue-700 mt-1">
+                          Klicken Sie auf das Video, um zu verstehen wie Sie das Modul verwenden.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Text Instructions */}
+                  {project.instructions && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-6 w-6 text-gray-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">Anleitung</h4>
+                          <div className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
+                            {project.instructions}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manual/Handbook Download */}
+                  {project.manualUrl && (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <BookOpen className="h-6 w-6 text-green-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-green-900">Handbuch / Dokumentation</h4>
+                          {project.manualFilename && (
+                            <p className="text-sm text-green-700 mt-1">
+                              {project.manualFilename}
+                            </p>
+                          )}
+                          <p className="text-sm text-green-600 mt-1">
+                            Laden Sie das Handbuch herunter für eine ausführliche Anleitung.
+                          </p>
+                          <a
+                            href={project.manualUrl}
+                            download={project.manualFilename || 'Handbuch.pdf'}
+                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            Handbuch herunterladen
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Test Feedback Section - Only shown when in test */}
             {isInTest && (
               <Card className="border-purple-200">
@@ -284,7 +587,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                   {/* Existing Feedback */}
                   {testFeedback.length > 0 && (
                     <div className="mb-6 space-y-3">
-                      {testFeedback.map((feedback) => (
+                      {testFeedback.map((feedback: TestFeedback) => (
                         <div
                           key={feedback.id}
                           className={`rounded-lg border p-4 ${
@@ -333,7 +636,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                       >
                         {isSubmittingFeedback ? (
                           <>
-                            <Clock className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Wird gesendet...
                           </>
                         ) : (
@@ -367,7 +670,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                         >
                           {isCompletingTest ? (
                             <>
-                              <Clock className="mr-2 h-4 w-4 animate-spin" />
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Wird abgeschlossen...
                             </>
                           ) : (
@@ -395,30 +698,30 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               <CardContent>
                 {project.acceptanceCriteria && project.acceptanceCriteria.length > 0 ? (
                   <div className="space-y-3">
-                    {project.acceptanceCriteria.map((criterion, index) => (
+                    {project.acceptanceCriteria.map((criterion: AcceptanceCriterion, index: number) => (
                       <div
                         key={criterion.id}
                         className={`flex items-start gap-3 rounded-lg border p-4 ${
-                          accepted
+                          currentAcceptanceStatus === 'akzeptiert'
                             ? 'border-green-200 bg-green-50'
                             : 'border-gray-200 bg-white'
                         }`}
                       >
                         <div
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                            accepted
+                            currentAcceptanceStatus === 'akzeptiert'
                               ? 'bg-green-500 text-white'
                               : 'bg-gray-200 text-gray-600'
                           }`}
                         >
-                          {accepted ? (
+                          {currentAcceptanceStatus === 'akzeptiert' ? (
                             <Check className="h-4 w-4" />
                           ) : (
                             <span className="text-xs font-medium">{index + 1}</span>
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className={`text-sm ${accepted ? 'text-green-800' : 'text-gray-900'}`}>
+                          <p className={`text-sm ${currentAcceptanceStatus === 'akzeptiert' ? 'text-green-800' : 'text-gray-900'}`}>
                             {criterion.description}
                           </p>
                         </div>
@@ -429,34 +732,44 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                   <p className="text-gray-500">Keine Akzeptanzkriterien definiert.</p>
                 )}
 
-                {/* Accept Button */}
-                {currentAcceptanceStatus === 'ausstehend' && (
+                {/* Accept/Reject Buttons */}
+                {currentAcceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
                   <div className="mt-6 rounded-lg border-2 border-dashed border-yellow-300 bg-yellow-50 p-6">
                     <div className="text-center">
                       <h3 className="font-semibold text-gray-900">
-                        Akzeptanzkriterien bestätigen
+                        Akzeptanzkriterien prüfen
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
-                        Mit Ihrer Bestätigung geben Sie grünes Licht für den Start der Entwicklung.
+                        Bitte bestätigen oder verwerfen Sie die Akzeptanzkriterien.
                       </p>
-                      <Button
-                        onClick={handleAccept}
-                        disabled={isAccepting}
-                        className="mt-4"
-                        size="lg"
-                      >
-                        {isAccepting ? (
-                          <>
-                            <Clock className="mr-2 h-4 w-4 animate-spin" />
-                            Wird verarbeitet...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Akzeptanzkriterien bestätigen
-                          </>
-                        )}
-                      </Button>
+                      <div className="mt-4 flex justify-center gap-3">
+                        <Button
+                          onClick={handleAccept}
+                          disabled={isAccepting}
+                          size="lg"
+                        >
+                          {isAccepting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Wird verarbeitet...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              Akzeptieren
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => setShowRejectModal(true)}
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                          size="lg"
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Verwerfen
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -539,6 +852,103 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </CardContent>
             </Card>
 
+            {/* Customer Contact */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Ihr Verantwortlicher
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isEditingContact ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={customerContactName}
+                      onChange={(e) => setCustomerContactName(e.target.value)}
+                      placeholder="Name eingeben..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={isSavingContact || !customerContactName.trim()}
+                        onClick={async () => {
+                          setIsSavingContact(true)
+                          try {
+                            await fetch(`/api/modules/${projectId}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ customerContactName: customerContactName.trim() }),
+                            })
+                            setProject(prev => prev ? { ...prev, customerContactName: customerContactName.trim() } : null)
+                            setIsEditingContact(false)
+                          } catch (error) {
+                            console.error('Error saving contact:', error)
+                            alert('Fehler beim Speichern')
+                          } finally {
+                            setIsSavingContact(false)
+                          }
+                        }}
+                      >
+                        {isSavingContact ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Speichern'
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCustomerContactName(project?.customerContactName || '')
+                          setIsEditingContact(false)
+                        }}
+                      >
+                        Abbrechen
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {project?.customerContactName ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-primary-600 font-semibold text-sm">
+                            {project.customerContactName.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-gray-900">{project.customerContactName}</span>
+                        </div>
+                        <button
+                          onClick={() => setIsEditingContact(true)}
+                          className="text-xs text-primary-600 hover:text-primary-700"
+                        >
+                          Ändern
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <p className="text-sm text-gray-500 mb-2">Noch nicht festgelegt</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsEditingContact(true)}
+                        >
+                          <User className="mr-2 h-4 w-4" />
+                          Verantwortlichen festlegen
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <p className="mt-3 text-xs text-gray-500">
+                  Der Verantwortliche auf Ihrer Seite für dieses Projekt.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Actions */}
             <Card>
               <CardHeader>
@@ -562,6 +972,53 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
           </div>
         </div>
       </div>
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Akzeptanzkriterien verwerfen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Bitte geben Sie einen Kommentar ein, warum Sie die Kriterien ablehnen.
+            </p>
+            <textarea
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
+              placeholder="Ihr Kommentar ist erforderlich..."
+              className="mt-4 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              rows={4}
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRejectModal(false)
+                  setRejectComment('')
+                }}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                onClick={handleReject}
+                disabled={!rejectComment.trim() || isRejecting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isRejecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Wird verarbeitet...
+                  </>
+                ) : (
+                  <>
+                    <X className="mr-2 h-4 w-4" />
+                    Verwerfen
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

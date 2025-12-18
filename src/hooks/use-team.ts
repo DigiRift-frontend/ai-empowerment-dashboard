@@ -8,7 +8,8 @@ export function useTeam() {
   const { data, error, isLoading, mutate } = useSWR('/api/team', fetcher)
 
   return {
-    teamMembers: data || [],
+    team: data || [],
+    teamMembers: data || [], // Alias for backwards compatibility
     isLoading,
     isError: error,
     mutate,

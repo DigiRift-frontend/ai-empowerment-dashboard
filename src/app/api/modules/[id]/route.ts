@@ -48,6 +48,14 @@ export async function GET(
   }
 }
 
+// Status label mapping for notifications
+const statusLabels: Record<string, string> = {
+  geplant: 'Geplant',
+  in_arbeit: 'In Arbeit',
+  im_test: 'Im Test',
+  abgeschlossen: 'Abgeschlossen',
+}
+
 // PATCH /api/modules/[id] - Modul aktualisieren
 export async function PATCH(
   request: Request,
@@ -55,6 +63,16 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
+
+    // Fetch the current module to check for status changes
+    const currentModule = await prisma.module.findUnique({
+      where: { id: params.id },
+      select: { status: true, name: true, customerId: true },
+    })
+
+    if (!currentModule) {
+      return NextResponse.json({ error: 'Module not found' }, { status: 404 })
+    }
 
     // Build update data dynamically
     const updateData: Record<string, unknown> = {}
@@ -75,6 +93,16 @@ export async function PATCH(
     if (body.acceptanceStatus !== undefined) updateData.acceptanceStatus = body.acceptanceStatus
     if (body.acceptedAt !== undefined) updateData.acceptedAt = body.acceptedAt ? new Date(body.acceptedAt) : null
     if (body.acceptedBy !== undefined) updateData.acceptedBy = body.acceptedBy
+    if (body.testCompletedAt !== undefined) updateData.testCompletedAt = body.testCompletedAt ? new Date(body.testCompletedAt) : null
+    if (body.testCompletedBy !== undefined) updateData.testCompletedBy = body.testCompletedBy
+    // Anleitungen & Dokumentation
+    if (body.videoUrl !== undefined) updateData.videoUrl = body.videoUrl || null
+    if (body.instructions !== undefined) updateData.instructions = body.instructions || null
+    if (body.manualUrl !== undefined) updateData.manualUrl = body.manualUrl || null
+    if (body.manualFilename !== undefined) updateData.manualFilename = body.manualFilename || null
+    // Kunden-Verantwortlicher
+    if (body.customerContactId !== undefined) updateData.customerContactId = body.customerContactId || null
+    if (body.customerContactName !== undefined) updateData.customerContactName = body.customerContactName || null
 
     const updatedModule = await prisma.module.update({
       where: { id: params.id },
@@ -86,6 +114,54 @@ export async function PATCH(
         testFeedback: true,
       },
     })
+
+    // If status changed, create notifications for the customer
+    if (body.status !== undefined && body.status !== currentModule.status) {
+      const oldStatusLabel = statusLabels[currentModule.status] || currentModule.status
+      const newStatusLabel = statusLabels[body.status] || body.status
+
+      // Create AdminMessage for status update history
+      await prisma.adminMessage.create({
+        data: {
+          subject: `Status-Update: ${currentModule.name}`,
+          content: `Das Modul "${currentModule.name}" wurde von "${oldStatusLabel}" auf "${newStatusLabel}" verschoben.`,
+          from: 'System',
+          messageType: 'status_update',
+          customerId: currentModule.customerId,
+        },
+      })
+
+      // If moved to "im_test", create action-required notification
+      if (body.status === 'im_test') {
+        await prisma.notification.create({
+          data: {
+            type: 'test_required',
+            title: 'Test durchführen',
+            message: `Das Modul "${currentModule.name}" ist bereit zum Testen. Bitte führen Sie den Test durch und geben Sie Feedback.`,
+            actionRequired: true,
+            relatedProjectId: params.id,
+            relatedUrl: `/roadmap/${params.id}`,
+            customerId: currentModule.customerId,
+          },
+        })
+      }
+
+      // If moved away from "im_test" (e.g., back to in_arbeit or to abgeschlossen),
+      // mark test_required notifications as no longer actionRequired
+      if (currentModule.status === 'im_test' && body.status !== 'im_test') {
+        await prisma.notification.updateMany({
+          where: {
+            customerId: currentModule.customerId,
+            relatedProjectId: params.id,
+            type: 'test_required',
+            actionRequired: true,
+          },
+          data: {
+            actionRequired: false,
+          },
+        })
+      }
+    }
 
     return NextResponse.json(updatedModule)
   } catch (error) {

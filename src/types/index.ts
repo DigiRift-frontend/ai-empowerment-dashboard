@@ -7,9 +7,9 @@ export interface Membership {
   monthlyPoints: number
   usedPoints: number
   remainingPoints: number
-  bonusPoints: number // Extra-Punkte gutgeschrieben
+  bonusPoints?: number // Extra-Punkte gutgeschrieben
   monthlyPrice: number // Preis in EUR
-  discountPercent: number // Rabatt in Prozent (z.B. 10 = 10%)
+  discountPercent?: number // Rabatt in Prozent (z.B. 10 = 10%)
   contractStart: string // Vertragsstart
   contractEnd?: string // Vertragsende (optional)
   periodStart: string // Aktueller Abrechnungszeitraum Start
@@ -67,8 +67,8 @@ export interface ExternalCost {
   unit: string
 }
 
-// Module Status (Kanban-Spalten)
-export type ModuleStatus = 'geplant' | 'in-arbeit' | 'im-test' | 'abgeschlossen'
+// Module Status (Kanban-Spalten) - matches DB enum with underscores
+export type ModuleStatus = 'geplant' | 'in_arbeit' | 'im_test' | 'abgeschlossen'
 export type ModulePriority = 'hoch' | 'mittel' | 'niedrig'
 export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
 
@@ -102,8 +102,16 @@ export interface Module {
   // Wartung & Kosten
   monthlyMaintenancePoints: number
   softwareUrl?: string // Link zur laufenden Software (wenn live)
+  // Anleitungen & Dokumentation
+  videoUrl?: string // Link zu Anleitungsvideo
+  instructions?: string // Textanleitung für Nutzung/Test
+  manualUrl?: string // Link/Pfad zu Handbuch/PDF
+  manualFilename?: string // Originaler Dateiname des Handbuchs
   // Zugewiesene Person (intern)
   assigneeId?: string
+  // Kunden-Verantwortlicher
+  customerContactId?: string
+  customerContactName?: string
   // Akzeptanzkriterien
   acceptanceCriteria?: AcceptanceCriterion[]
   acceptanceStatus?: AcceptanceStatus
@@ -181,7 +189,7 @@ export interface CustomerSchulungAssignment {
   customerId: string
   schulungId?: string // Einzelne Schulung
   serieId?: string // Oder Serie
-  status: 'geplant' | 'in-durchfuehrung' | 'abgeschlossen'
+  status: 'geplant' | 'in_durchfuehrung' | 'abgeschlossen'
   scheduledDate?: string
   completedDate?: string
   completedSchulungIds?: string[] // Für Serien: welche Schulungen sind bereits abgeschlossen
@@ -283,6 +291,8 @@ export interface Notification {
   relatedUrl?: string
 }
 
+export type AdminMessageType = 'normal' | 'status_update'
+
 export interface AdminMessage {
   id: string
   subject: string
@@ -290,4 +300,5 @@ export interface AdminMessage {
   createdAt: string
   read: boolean
   from: string
+  messageType?: AdminMessageType
 }

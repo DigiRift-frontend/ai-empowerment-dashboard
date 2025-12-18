@@ -6,10 +6,10 @@ import { Users, Euro, TrendingUp, Clock, AlertCircle, CheckCircle, ArrowRight } 
 import Link from 'next/link'
 
 const statusConfig = {
-  'geplant': { label: 'Geplant', color: 'bg-gray-100 text-gray-700' },
-  'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700' },
-  'im-test': { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700' },
-  'abgeschlossen': { label: 'Fertig', color: 'bg-green-100 text-green-700' },
+  geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-700' },
+  in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700' },
+  im_test: { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700' },
+  abgeschlossen: { label: 'Fertig', color: 'bg-green-100 text-green-700' },
 }
 
 const tierConfig = {
@@ -29,8 +29,8 @@ export default function AdminDashboardPage() {
     }))
   )
 
-  // Aktive Module (in-arbeit oder im-test)
-  const activeModules = allModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test')
+  // Aktive Module (in_arbeit oder im_test)
+  const activeModules = allModules.filter(m => m.status === 'in_arbeit' || m.status === 'im_test')
 
   // Module mit ausstehender Akzeptanz
   const pendingAcceptanceModules = allModules.filter(m => m.acceptanceStatus === 'ausstehend')

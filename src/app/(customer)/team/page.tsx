@@ -308,31 +308,6 @@ export default function TeamPage() {
           </div>
         )}
 
-        {/* Roles Overview */}
-        {teamMembers.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Rollen-Übersicht</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                {Object.entries(membersByRole).map(([role, members]) => (
-                  <div key={role} className="rounded-lg border border-gray-200 p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">{role}</span>
-                      <Badge variant="secondary">{members.length}</Badge>
-                    </div>
-                    <div className="mt-3 space-y-1">
-                      {members.map((m) => (
-                        <p key={m.id} className="text-sm text-gray-600">{m.name}</p>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Add/Edit Member Modal */}

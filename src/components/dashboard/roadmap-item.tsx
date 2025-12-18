@@ -11,8 +11,8 @@ interface RoadmapItemProps {
 export function RoadmapItemCard({ item }: RoadmapItemProps) {
   const statusConfig = {
     geplant: { label: 'Geplant', variant: 'secondary' as const },
-    'in-arbeit': { label: 'In Arbeit', variant: 'default' as const },
-    'im-test': { label: 'Im Test', variant: 'warning' as const },
+    in_arbeit: { label: 'In Arbeit', variant: 'default' as const },
+    im_test: { label: 'Im Test', variant: 'warning' as const },
     abgeschlossen: { label: 'Abgeschlossen', variant: 'success' as const },
   }
 

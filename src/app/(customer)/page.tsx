@@ -22,6 +22,10 @@ import {
   CreditCard,
   TrendingUp,
   Loader2,
+  Play,
+  FileText,
+  BookOpen,
+  Download,
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -51,6 +55,9 @@ export default function DashboardPage() {
 
   // Schulungen
   const upcomingWorkshop = workshops.find((w: any) => w.status === 'geplant')
+
+  // Module mit Anleitungen
+  const modulesWithDocs = modules.filter((m: any) => m.videoUrl || m.manualUrl || m.instructions)
 
   // Offene Aktionen
   const pendingAcceptance = modules.filter(
@@ -247,6 +254,82 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Anleitungen & Dokumentation */}
+          {modulesWithDocs.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-gray-400" />
+                  Anleitungen & Dokumentation
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  {modulesWithDocs.slice(0, 4).map((mod: any) => (
+                    <div
+                      key={mod.id}
+                      className="rounded-lg border border-gray-200 p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="font-medium text-gray-900">{mod.name}</p>
+                          <Badge variant="outline" className="mt-1 text-xs">
+                            {mod.status === 'abgeschlossen' ? 'Live' :
+                             mod.status === 'im_test' ? 'Im Test' :
+                             mod.status === 'in_arbeit' ? 'In Arbeit' : 'Geplant'}
+                          </Badge>
+                        </div>
+                        <Link href={`/roadmap/${mod.id}`}>
+                          <Button variant="ghost" size="sm">
+                            Details
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {mod.videoUrl && (
+                          <a
+                            href={mod.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-700 hover:bg-red-100 transition-colors"
+                          >
+                            <Play className="h-4 w-4" />
+                            Video ansehen
+                          </a>
+                        )}
+                        {mod.manualUrl && (
+                          <a
+                            href={mod.manualUrl}
+                            download
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            {mod.manualFilename || 'Handbuch'}
+                          </a>
+                        )}
+                        {mod.instructions && (
+                          <Link
+                            href={`/roadmap/${mod.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Anleitung lesen
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {modulesWithDocs.length > 4 && (
+                    <p className="text-center text-sm text-gray-500">
+                      + {modulesWithDocs.length - 4} weitere Module mit Anleitungen
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Schulungen */}
           <Card>

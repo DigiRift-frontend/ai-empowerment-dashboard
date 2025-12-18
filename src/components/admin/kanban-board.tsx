@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -11,6 +11,7 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -19,7 +20,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Module, TeamMember, ModuleStatus } from '@/types'
-import { GripVertical, Calendar, Check, Clock, User, ListChecks, ExternalLink, Trash2, Copy } from 'lucide-react'
+import { Calendar, Check, Clock, ListChecks, ExternalLink, Trash2, Copy, Pencil } from 'lucide-react'
 
 interface KanbanBoardProps {
   items: Module[]
@@ -34,12 +35,12 @@ interface KanbanBoardProps {
 
 const statusConfig: Record<ModuleStatus, { label: string; color: string; columnColor: string }> = {
   geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-700', columnColor: 'border-gray-300' },
-  'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700', columnColor: 'border-blue-400' },
-  'im-test': { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700', columnColor: 'border-yellow-400' },
+  in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700', columnColor: 'border-blue-400' },
+  im_test: { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700', columnColor: 'border-yellow-400' },
   abgeschlossen: { label: 'Fertig', color: 'bg-green-100 text-green-700', columnColor: 'border-green-400' },
 }
 
-const statuses: ModuleStatus[] = ['geplant', 'in-arbeit', 'im-test', 'abgeschlossen']
+const statuses: ModuleStatus[] = ['geplant', 'in_arbeit', 'im_test', 'abgeschlossen']
 
 interface KanbanCardProps {
   item: Module
@@ -75,19 +76,36 @@ function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, onDelete
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer group relative"
-      onClick={() => onItemClick?.(item)}
+      {...attributes}
+      {...listeners}
+      className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="font-medium text-gray-900 text-sm pr-12">{item.name}</h4>
+        <h4 className="font-medium text-gray-900 text-sm pr-16">{item.name}</h4>
         <div className="flex items-center gap-1 absolute top-3 right-3">
+          {onItemClick && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onItemClick(item)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded transition-all"
+              title="Bearbeiten"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onCloneItem && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
+                e.preventDefault()
                 onCloneItem(item)
               }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 text-blue-500 rounded transition-all"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-50 text-blue-500 rounded transition-all"
               title="Klonen"
             >
               <Copy className="h-3.5 w-3.5" />
@@ -97,22 +115,16 @@ function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, onDelete
             <button
               onClick={(e) => {
                 e.stopPropagation()
+                e.preventDefault()
                 onDeleteItem(item.id)
               }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-red-500 rounded transition-all"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 text-red-500 rounded transition-all"
               title="Löschen"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
-          <button
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-4 w-4 text-gray-400" />
-          </button>
         </div>
       </div>
       <p className="text-xs text-gray-500 mb-3 line-clamp-2">
@@ -252,6 +264,9 @@ function KanbanColumn({
   showMaintenancePoints?: boolean
 }) {
   const config = statusConfig[status]
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+  })
 
   return (
     <div className="flex flex-col">
@@ -262,7 +277,13 @@ function KanbanColumn({
         </span>
       </div>
       <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-3 min-h-[200px]" data-status={status}>
+        <div
+          ref={setNodeRef}
+          className={`flex-1 space-y-3 min-h-[200px] rounded-lg p-2 -m-2 transition-colors ${
+            isOver ? 'bg-primary-50 ring-2 ring-primary-200' : ''
+          }`}
+          data-status={status}
+        >
           {items.map((item) => (
             <KanbanCard
               key={item.id}
@@ -276,8 +297,10 @@ function KanbanColumn({
             />
           ))}
           {items.length === 0 && (
-            <div className="flex items-center justify-center h-24 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-400">
-              Keine Projekte
+            <div className={`flex items-center justify-center h-24 border-2 border-dashed rounded-lg text-sm transition-colors ${
+              isOver ? 'border-primary-300 text-primary-500 bg-primary-50' : 'border-gray-200 text-gray-400'
+            }`}>
+              {isOver ? 'Hier ablegen' : 'Keine Projekte'}
             </div>
           )}
         </div>
@@ -289,6 +312,11 @@ function KanbanColumn({
 export function KanbanBoard({ items, teamMembers, onStatusChange, onAssigneeChange, onItemClick, onDeleteItem, onCloneItem, showMaintenancePoints }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [localItems, setLocalItems] = useState(items)
+
+  // Sync localItems when items prop changes
+  useEffect(() => {
+    setLocalItems(items)
+  }, [items])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

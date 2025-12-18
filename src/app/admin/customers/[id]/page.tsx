@@ -16,7 +16,7 @@ import { Module, AcceptanceCriterion, ModuleStatus, CustomerRoadmapItem, Schulun
 import { useCustomer, updateMembership, updateCustomer } from '@/hooks/use-customers'
 import { useTeam } from '@/hooks/use-team'
 import { useAdvisors } from '@/hooks/use-advisors'
-import { Loader2, Pencil, Users as UsersIcon } from 'lucide-react'
+import { Loader2, Pencil, Users as UsersIcon, Settings, Upload, FileDown, Trash2 as TrashIcon } from 'lucide-react'
 import {
   ArrowLeft,
   Package,
@@ -45,6 +45,7 @@ import {
   Kanban,
   Layers,
   Check,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -59,15 +60,15 @@ const tierConfig = {
 
 const statusConfig = {
   geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-700', columnColor: 'border-gray-300' },
-  'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700', columnColor: 'border-blue-400' },
-  'im-test': { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700', columnColor: 'border-yellow-400' },
+  in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700', columnColor: 'border-blue-400' },
+  im_test: { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700', columnColor: 'border-yellow-400' },
   abgeschlossen: { label: 'Fertig', color: 'bg-green-100 text-green-700', columnColor: 'border-green-400' },
 }
 
 const moduleStatusConfig: Record<string, { label: string; color: string }> = {
   geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-700' },
-  'in-arbeit': { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700' },
-  'im-test': { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700' },
+  in_arbeit: { label: 'In Arbeit', color: 'bg-blue-100 text-blue-700' },
+  im_test: { label: 'Im Test', color: 'bg-yellow-100 text-yellow-700' },
   abgeschlossen: { label: 'Live', color: 'bg-green-100 text-green-700' },
 }
 
@@ -122,6 +123,7 @@ export default function CustomerDetailPage() {
   const [newMessageSubject, setNewMessageSubject] = useState('')
   const [newMessageContent, setNewMessageContent] = useState('')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
+  const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
 
   // Book Points State
   const [bookPointsData, setBookPointsData] = useState({
@@ -147,6 +149,7 @@ export default function CustomerDetailPage() {
   const [isDeletingMessage, setIsDeletingMessage] = useState<string | null>(null)
   const [isDeletingModule, setIsDeletingModule] = useState<string | null>(null)
   const [isCreatingModule, setIsCreatingModule] = useState(false)
+  const [isUploadingManual, setIsUploadingManual] = useState(false)
 
   // New Module Form State
   const [newModuleData, setNewModuleData] = useState({
@@ -155,7 +158,8 @@ export default function CustomerDetailPage() {
     status: 'geplant',
     monthlyMaintenancePoints: '',
     softwareUrl: '',
-    assigneeId: '',
+    assigneeId: '', // Interner Verantwortlicher (aus team)
+    customerContactId: '', // Kunden-Verantwortlicher (aus customer.teamMembers)
   })
 
   // Get data from API response
@@ -170,6 +174,7 @@ export default function CustomerDetailPage() {
     actionRequired: false, // AdminMessage doesn't have this field
     sentAt: msg.createdAt,
     sentBy: msg.from,
+    messageType: msg.messageType || 'normal',
   }))
   const customerRoadmap = mockCustomerRoadmaps[customerId]
   const initialSchulungAssignments = customer?.schulungAssignments || []
@@ -181,10 +186,10 @@ export default function CustomerDetailPage() {
   // Update state when customer data loads
   useEffect(() => {
     if (customer) {
-      // Map API modules to expected format (status with underscores -> hyphens for display)
+      // Map API modules to expected format
       const mappedModules = apiModules.map((m: any) => ({
         ...m,
-        status: m.status.replace(/_/g, '-') as ModuleStatus,
+        status: m.status as ModuleStatus,
       }))
       setCustomerModules(mappedModules)
       setRoadmapItems(customerRoadmap?.items || [])
@@ -370,12 +375,35 @@ export default function CustomerDetailPage() {
     }
   }
 
+  // Open new module modal with defaults
+  const openNewModuleModal = () => {
+    // Finde den passenden TeamMember basierend auf dem Advisor-Namen
+    const advisorName = customer?.advisor?.name
+    const defaultAssignee = (team || []).find((m: any) =>
+      m.name.toLowerCase().includes(advisorName?.split(' ')[0]?.toLowerCase() || '')
+    )
+
+    setNewModuleData({
+      name: '',
+      description: '',
+      status: 'geplant',
+      monthlyMaintenancePoints: '',
+      softwareUrl: '',
+      assigneeId: defaultAssignee?.id || '',
+      customerContactId: '',
+    })
+    setShowNewModuleModal(true)
+  }
+
   // Create new module
   const handleCreateModule = async () => {
     if (!newModuleData.name.trim()) return
 
     setIsCreatingModule(true)
     try {
+      // Finde den Kunden-Verantwortlichen Namen
+      const customerContact = (customer?.teamMembers || []).find((m: any) => m.id === newModuleData.customerContactId)
+
       await fetch('/api/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,6 +414,8 @@ export default function CustomerDetailPage() {
           monthlyMaintenancePoints: parseFloat(newModuleData.monthlyMaintenancePoints) || 0,
           softwareUrl: newModuleData.softwareUrl || null,
           assigneeId: newModuleData.assigneeId || null,
+          customerContactId: newModuleData.customerContactId || null,
+          customerContactName: customerContact?.name || null,
           customerId: customerId,
           showInRoadmap: true,
         }),
@@ -397,6 +427,7 @@ export default function CustomerDetailPage() {
         monthlyMaintenancePoints: '',
         softwareUrl: '',
         assigneeId: '',
+        customerContactId: '',
       })
       setShowNewModuleModal(false)
       mutate() // Refresh customer data
@@ -865,7 +896,7 @@ export default function CustomerDetailPage() {
                 <button
                   onClick={() => {
                     setActiveTab('modules')
-                    setShowNewModuleModal(true)
+                    openNewModuleModal()
                   }}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
                 >
@@ -924,7 +955,7 @@ export default function CustomerDetailPage() {
                 </div>
                 <div className="divide-y divide-gray-100">
                   {customerModules
-                    .filter((m) => m.status === 'in-arbeit' || m.status === 'im-test')
+                    .filter((m) => m.status === 'in_arbeit' || m.status === 'im_test')
                     .slice(0, 3)
                     .map((module) => (
                       <div key={module.id} className="px-5 py-3">
@@ -947,7 +978,7 @@ export default function CustomerDetailPage() {
                         </div>
                       </div>
                     ))}
-                  {customerModules.filter((m) => m.status === 'in-arbeit' || m.status === 'im-test')
+                  {customerModules.filter((m) => m.status === 'in_arbeit' || m.status === 'im_test')
                     .length === 0 && (
                     <div className="px-5 py-8 text-center text-gray-500">Keine aktiven Module</div>
                   )}
@@ -1092,7 +1123,7 @@ export default function CustomerDetailPage() {
                     Aus Katalog
                   </button>
                   <button
-                    onClick={() => setShowNewModuleModal(true)}
+                    onClick={openNewModuleModal}
                     className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
                   >
                     <Plus className="h-4 w-4" />
@@ -1130,7 +1161,7 @@ export default function CustomerDetailPage() {
                     <div className="bg-white rounded-xl border border-gray-200 p-4">
                       <p className="text-sm text-gray-500">In Arbeit</p>
                       <p className="text-2xl font-bold text-blue-600">
-                        {customerModules.filter(m => m.status === 'in-arbeit' || m.status === 'im-test').length}
+                        {customerModules.filter(m => m.status === 'in_arbeit' || m.status === 'im_test').length}
                       </p>
                     </div>
                     <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -1232,16 +1263,22 @@ export default function CustomerDetailPage() {
                   teamMembers={customer?.teamMembers || []}
                   showMaintenancePoints={true}
                   onStatusChange={async (itemId, newStatus) => {
+                    // If moving to "abgeschlossen", automatically set progress to 100%
+                    const updateData: { status: ModuleStatus; progress?: number } = { status: newStatus }
+                    if (newStatus === 'abgeschlossen') {
+                      updateData.progress = 100
+                    }
+
                     // Update local state immediately
                     setCustomerModules(prev =>
-                      prev.map(m => m.id === itemId ? { ...m, status: newStatus } : m)
+                      prev.map(m => m.id === itemId ? { ...m, status: newStatus, ...(newStatus === 'abgeschlossen' ? { progress: 100 } : {}) } : m)
                     )
                     // Persist to API
                     try {
                       await fetch(`/api/modules/${itemId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: newStatus.replace(/-/g, '_') }),
+                        body: JSON.stringify(updateData),
                       })
                       mutate()
                     } catch (error) {
@@ -1339,12 +1376,12 @@ export default function CustomerDetailPage() {
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                     assignment.status === 'abgeschlossen'
                                       ? 'bg-green-100 text-green-700'
-                                      : assignment.status === 'in-durchfuehrung'
+                                      : assignment.status === 'in_durchfuehrung'
                                         ? 'bg-blue-100 text-blue-700'
                                         : 'bg-gray-100 text-gray-700'
                                   }`}>
                                     {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
-                                     assignment.status === 'in-durchfuehrung' ? 'In Durchführung' : 'Geplant'}
+                                     assignment.status === 'in_durchfuehrung' ? 'In Durchführung' : 'Geplant'}
                                   </span>
                                 </div>
 
@@ -1404,7 +1441,7 @@ export default function CustomerDetailPage() {
                                                         completedSchulungIds: [...(a.completedSchulungIds || []), schulungId],
                                                         status: (a.completedSchulungIds?.length || 0) + 1 >= serie.schulungIds.length
                                                           ? 'abgeschlossen'
-                                                          : 'in-durchfuehrung',
+                                                          : 'in_durchfuehrung',
                                                       }
                                                     : a
                                                 )
@@ -1485,12 +1522,12 @@ export default function CustomerDetailPage() {
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                     assignment.status === 'abgeschlossen'
                                       ? 'bg-green-100 text-green-700'
-                                      : assignment.status === 'in-durchfuehrung'
+                                      : assignment.status === 'in_durchfuehrung'
                                         ? 'bg-blue-100 text-blue-700'
                                         : 'bg-gray-100 text-gray-700'
                                   }`}>
                                     {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
-                                     assignment.status === 'in-durchfuehrung' ? 'In Durchführung' : 'Geplant'}
+                                     assignment.status === 'in_durchfuehrung' ? 'In Durchführung' : 'Geplant'}
                                   </span>
                                   {assignment.status !== 'abgeschlossen' && (
                                     <button
@@ -1734,62 +1771,138 @@ export default function CustomerDetailPage() {
               {/* Nachrichtenhistorie */}
               <div className="bg-white rounded-xl border border-gray-200">
                 <div className="border-b border-gray-200 px-6 py-4">
-                  <h4 className="font-medium text-gray-900">Nachrichtenhistorie ({messages.length})</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-gray-900">Nachrichtenhistorie ({messages.length})</h4>
+                    {/* Message Type Filter */}
+                    {messages.length > 0 && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setMessageFilter('all')}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                            messageFilter === 'all'
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          Alle ({messages.length})
+                        </button>
+                        <button
+                          onClick={() => setMessageFilter('status_update')}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                            messageFilter === 'status_update'
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Status ({messages.filter(m => m.messageType === 'status_update').length})
+                        </button>
+                        <button
+                          onClick={() => setMessageFilter('normal')}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                            messageFilter === 'normal'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          <Mail className="h-3 w-3" />
+                          Normal ({messages.filter(m => (m.messageType || 'normal') === 'normal').length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {messages.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                      <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500">Noch keine Nachrichten gesendet</p>
-                    </div>
-                  ) : (
-                    messages.map((msg) => (
-                      <div key={msg.id} className="px-6 py-4 hover:bg-gray-50">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h5 className="font-medium text-gray-900 truncate">{msg.subject}</h5>
-                              {msg.actionRequired && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                                  Aktion erforderlich
-                                </span>
-                              )}
-                              {!msg.read && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                                  Ungelesen
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{msg.content}</p>
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <span>
-                                {new Date(msg.sentAt).toLocaleDateString('de-DE', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                              <span>von {msg.sentBy}</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            disabled={isDeletingMessage === msg.id}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Nachricht löschen"
-                          >
-                            {isDeletingMessage === msg.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
+                  {(() => {
+                    const filteredMessages = messages.filter((m) => {
+                      if (messageFilter === 'all') return true
+                      return (m.messageType || 'normal') === messageFilter
+                    })
+
+                    if (filteredMessages.length === 0) {
+                      return (
+                        <div className="px-6 py-12 text-center">
+                          <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500">
+                            {messageFilter === 'status_update'
+                              ? 'Keine Status-Updates vorhanden'
+                              : messageFilter === 'normal'
+                              ? 'Keine normalen Nachrichten vorhanden'
+                              : 'Noch keine Nachrichten gesendet'}
+                          </p>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      )
+                    }
+
+                    return filteredMessages.map((msg) => {
+                      const isStatusUpdate = msg.messageType === 'status_update'
+                      return (
+                        <div key={msg.id} className={`px-6 py-4 hover:bg-gray-50 ${!msg.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''}`}>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              {/* Icon based on message type */}
+                              <div className={`shrink-0 rounded-lg p-2 mt-0.5 ${
+                                isStatusUpdate
+                                  ? (msg.read ? 'bg-orange-50' : 'bg-orange-100')
+                                  : (msg.read ? 'bg-gray-100' : 'bg-blue-100')
+                              }`}>
+                                {isStatusUpdate ? (
+                                  <RefreshCw className={`h-4 w-4 ${msg.read ? 'text-orange-400' : 'text-orange-600'}`} />
+                                ) : (
+                                  <Mail className={`h-4 w-4 ${msg.read ? 'text-gray-500' : 'text-blue-600'}`} />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h5 className="font-medium text-gray-900 truncate">{msg.subject}</h5>
+                                  {isStatusUpdate && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                                      Status-Update
+                                    </span>
+                                  )}
+                                  {msg.actionRequired && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                      Aktion erforderlich
+                                    </span>
+                                  )}
+                                  {!msg.read && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                      Ungelesen
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{msg.content}</p>
+                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                  <span>
+                                    {new Date(msg.sentAt).toLocaleDateString('de-DE', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                  <span>von {msg.sentBy}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              disabled={isDeletingMessage === msg.id}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Nachricht löschen"
+                            >
+                              {isDeletingMessage === msg.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
               </div>
             </div>
@@ -2096,13 +2209,36 @@ export default function CustomerDetailPage() {
                 />
               </div>
 
+              {/* Interner Verantwortlicher */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Interner Verantwortlicher
+                </label>
+                <select
+                  value={newModuleData.assigneeId}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, assigneeId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="">Nicht zugewiesen</option>
+                  {(team || []).map((member: { id: string; name: string; role?: string }) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} - {member.role || 'Team'}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Standard: Ansprechpartner des Kunden ({customer?.advisor?.name || 'N/A'})
+                </p>
+              </div>
+
+              {/* Kunden-Verantwortlicher */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Verantwortlicher (Kundenseite)
                 </label>
                 <select
-                  value={newModuleData.assigneeId}
-                  onChange={(e) => setNewModuleData({ ...newModuleData, assigneeId: e.target.value })}
+                  value={newModuleData.customerContactId}
+                  onChange={(e) => setNewModuleData({ ...newModuleData, customerContactId: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                   <option value="">Nicht zugewiesen</option>
@@ -2333,21 +2469,13 @@ export default function CustomerDetailPage() {
             </div>
 
             <div className="flex-1 overflow-auto p-6 space-y-6">
-              {/* Module Status */}
-              <div className="grid grid-cols-4 gap-4">
+              {/* Module Status Overview */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">Status</p>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[selectedModule.status].color}`}>
                     {statusConfig[selectedModule.status].label}
                   </span>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Fortschritt</p>
-                  <p className="font-medium text-gray-900">{selectedModule.progress}%</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Wartung/Monat</p>
-                  <p className="font-medium text-gray-900">{selectedModule.monthlyMaintenancePoints} P</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">Akzeptanz</p>
@@ -2361,6 +2489,343 @@ export default function CustomerDetailPage() {
                     {selectedModule.acceptanceStatus === 'akzeptiert' ? 'Akzeptiert' :
                      selectedModule.acceptanceStatus === 'abgelehnt' ? 'Abgelehnt' : 'Ausstehend'}
                   </span>
+                </div>
+              </div>
+
+              {/* Verantwortliche */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Interner Verantwortlicher */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-600 mb-2 font-medium">Interner Verantwortlicher</p>
+                  <select
+                    value={selectedModule.assigneeId || ''}
+                    onChange={(e) => {
+                      const newAssigneeId = e.target.value || undefined
+                      setSelectedModule({ ...selectedModule, assigneeId: newAssigneeId })
+                      setCustomerModules(prev =>
+                        prev.map(m => m.id === selectedModule.id ? { ...m, assigneeId: newAssigneeId } : m)
+                      )
+                    }}
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">-- Niemand zugewiesen --</option>
+                    {(team || []).map((member: { id: string; name: string; role?: string; assignedModules?: any[] }) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name} ({member.role || 'Team'}) - {member.assignedModules?.length || 0} Projekte
+                      </option>
+                    ))}
+                  </select>
+                  {selectedModule.assigneeId && (
+                    <div className="mt-2 text-xs text-blue-700">
+                      {(() => {
+                        const assignee = (team || []).find((m: any) => m.id === selectedModule.assigneeId)
+                        if (!assignee?.assignedModules?.length) return null
+                        const otherProjects = assignee.assignedModules.filter((m: any) => m.id !== selectedModule.id)
+                        if (otherProjects.length === 0) return <span>Dieses ist das einzige Projekt</span>
+                        return (
+                          <span>Betreut auch: {otherProjects.map((m: any) => m.name).join(', ')}</span>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Kunden-Verantwortlicher */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-600 mb-2 font-medium">Kunden-Verantwortlicher</p>
+                  <select
+                    value={selectedModule.customerContactId || ''}
+                    onChange={(e) => {
+                      const selectedTeamMember = (customer?.teamMembers || []).find((m: any) => m.id === e.target.value)
+                      const newContactId = e.target.value || undefined
+                      const newContactName = selectedTeamMember?.name || undefined
+                      setSelectedModule({ ...selectedModule, customerContactId: newContactId, customerContactName: newContactName })
+                      setCustomerModules(prev =>
+                        prev.map(m => m.id === selectedModule.id ? { ...m, customerContactId: newContactId, customerContactName: newContactName } : m)
+                      )
+                    }}
+                    className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  >
+                    <option value="">-- Niemand zugewiesen --</option>
+                    {(customer?.teamMembers || []).map((member: { id: string; name: string }) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedModule.customerContactName && !selectedModule.customerContactId && (
+                    <p className="text-xs text-gray-500 mt-1 italic">
+                      Manuell gesetzt: {selectedModule.customerContactName}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Editable Module Settings */}
+              <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-gray-400" />
+                  Modul-Einstellungen
+                </h3>
+
+                {/* Progress Slider */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">Fortschritt</label>
+                    <span className="text-sm font-semibold text-primary-600">{selectedModule.progress}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={selectedModule.progress}
+                    onChange={async (e) => {
+                      const newProgress = parseInt(e.target.value)
+                      setSelectedModule({ ...selectedModule, progress: newProgress })
+                      setCustomerModules(prev =>
+                        prev.map(m => m.id === selectedModule.id ? { ...m, progress: newProgress } : m)
+                      )
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Maintenance Points */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Wartungspunkte pro Monat
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedModule.monthlyMaintenancePoints}
+                      onChange={(e) => {
+                        const newPoints = parseInt(e.target.value) || 0
+                        setSelectedModule({ ...selectedModule, monthlyMaintenancePoints: newPoints })
+                        setCustomerModules(prev =>
+                          prev.map(m => m.id === selectedModule.id ? { ...m, monthlyMaintenancePoints: newPoints } : m)
+                        )
+                      }}
+                      className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-500">Punkte</span>
+                  </div>
+                </div>
+
+                {/* Software URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Software-URL (für Kunden-Test)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={selectedModule.softwareUrl || ''}
+                      onChange={(e) => {
+                        const newUrl = e.target.value
+                        setSelectedModule({ ...selectedModule, softwareUrl: newUrl })
+                        setCustomerModules(prev =>
+                          prev.map(m => m.id === selectedModule.id ? { ...m, softwareUrl: newUrl } : m)
+                        )
+                      }}
+                      placeholder="https://..."
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                    {selectedModule.softwareUrl && (
+                      <a
+                        href={selectedModule.softwareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
+                        title="Link öffnen"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dieser Link wird dem Kunden in der Testphase angezeigt.
+                  </p>
+                </div>
+
+                {/* Video URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Video-Anleitung (URL)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={selectedModule.videoUrl || ''}
+                      onChange={(e) => {
+                        const newUrl = e.target.value
+                        setSelectedModule({ ...selectedModule, videoUrl: newUrl })
+                        setCustomerModules(prev =>
+                          prev.map(m => m.id === selectedModule.id ? { ...m, videoUrl: newUrl } : m)
+                        )
+                      }}
+                      placeholder="https://youtube.com/... oder https://loom.com/..."
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                    {selectedModule.videoUrl && (
+                      <a
+                        href={selectedModule.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
+                        title="Video öffnen"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Link zu einem Anleitungsvideo (YouTube, Loom, etc.)
+                  </p>
+                </div>
+
+                {/* Manual/Handbook Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Handbuch/Dokumentation hochladen
+                  </label>
+
+                  {/* Show current file if exists */}
+                  {selectedModule.manualUrl && (
+                    <div className="mb-3 flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <FileDown className="h-5 w-5 text-green-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-green-800 truncate">
+                          {selectedModule.manualFilename || 'Handbuch.pdf'}
+                        </p>
+                        <p className="text-xs text-green-600">Hochgeladen</p>
+                      </div>
+                      <a
+                        href={selectedModule.manualUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg"
+                        title="Herunterladen"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                      <button
+                        onClick={() => {
+                          setSelectedModule({ ...selectedModule, manualUrl: undefined, manualFilename: undefined })
+                          setCustomerModules(prev =>
+                            prev.map(m => m.id === selectedModule.id ? { ...m, manualUrl: undefined, manualFilename: undefined } : m)
+                          )
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        title="Entfernen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Upload button */}
+                  <div className="flex items-center gap-2">
+                    <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                      isUploadingManual
+                        ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                        : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'
+                    }`}>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                        className="hidden"
+                        disabled={isUploadingManual}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+
+                          setIsUploadingManual(true)
+                          try {
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('type', 'manual')
+                            formData.append('moduleId', selectedModule.id)
+
+                            const response = await fetch('/api/upload', {
+                              method: 'POST',
+                              body: formData,
+                            })
+
+                            const data = await response.json()
+
+                            if (data.success) {
+                              setSelectedModule({
+                                ...selectedModule,
+                                manualUrl: data.url,
+                                manualFilename: data.originalName,
+                              })
+                              setCustomerModules(prev =>
+                                prev.map(m => m.id === selectedModule.id ? {
+                                  ...m,
+                                  manualUrl: data.url,
+                                  manualFilename: data.originalName,
+                                } : m)
+                              )
+                            } else {
+                              alert(data.error || 'Fehler beim Hochladen')
+                            }
+                          } catch (error) {
+                            console.error('Upload error:', error)
+                            alert('Fehler beim Hochladen der Datei')
+                          } finally {
+                            setIsUploadingManual(false)
+                            e.target.value = '' // Reset input
+                          }
+                        }}
+                      />
+                      {isUploadingManual ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                          <span className="text-sm text-gray-500">Wird hochgeladen...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {selectedModule.manualUrl ? 'Neue Datei hochladen' : 'PDF oder Dokument hochladen'}
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    PDF, Word, Excel oder PowerPoint (max. 50MB)
+                  </p>
+                </div>
+
+                {/* Text Instructions */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Textanleitung
+                  </label>
+                  <textarea
+                    value={selectedModule.instructions || ''}
+                    onChange={(e) => {
+                      const newInstructions = e.target.value
+                      setSelectedModule({ ...selectedModule, instructions: newInstructions })
+                      setCustomerModules(prev =>
+                        prev.map(m => m.id === selectedModule.id ? { ...m, instructions: newInstructions } : m)
+                      )
+                    }}
+                    placeholder="Schritt-für-Schritt Anleitung für den Kunden..."
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Kurze Anleitung wie der Kunde das Modul testen/benutzen kann
+                  </p>
                 </div>
               </div>
 
@@ -2468,10 +2933,42 @@ export default function CustomerDetailPage() {
                     Senden Sie die Akzeptanzkriterien an den Kunden zur Prüfung und Bestätigung.
                   </p>
                   <button
-                    onClick={() => {
-                      // In production: API call to send notification to customer
-                      console.log('Sending criteria for acceptance:', editingCriteria)
-                      alert('Akzeptanzkriterien wurden an den Kunden gesendet!')
+                    onClick={async () => {
+                      try {
+                        // First save the criteria
+                        await fetch(`/api/modules/${selectedModule.id}/criteria`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ criteria: editingCriteria }),
+                        })
+
+                        // Update module acceptanceStatus to "ausstehend"
+                        await fetch(`/api/modules/${selectedModule.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ acceptanceStatus: 'ausstehend' }),
+                        })
+
+                        // Create notification for customer
+                        await fetch(`/api/customers/${customer?.id}/notifications`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            type: 'acceptance_required',
+                            title: 'Akzeptanzkriterien prüfen',
+                            message: `Bitte prüfen Sie die Akzeptanzkriterien für das Modul "${selectedModule.name}" und bestätigen oder verwerfen Sie diese.`,
+                            actionRequired: true,
+                            relatedProjectId: selectedModule.id,
+                            relatedUrl: `/roadmap/${selectedModule.id}`,
+                          }),
+                        })
+
+                        mutate()
+                        alert('Akzeptanzkriterien wurden an den Kunden gesendet!')
+                      } catch (error) {
+                        console.error('Error sending criteria:', error)
+                        alert('Fehler beim Senden der Kriterien')
+                      }
                     }}
                     className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
                   >
@@ -2494,12 +2991,43 @@ export default function CustomerDetailPage() {
                 Abbrechen
               </button>
               <button
-                onClick={() => {
-                  // In production: API call to save criteria
-                  console.log('Saving criteria:', editingCriteria)
-                  setShowModuleDetailModal(false)
-                  setSelectedModule(null)
-                  setNewCriterionText('')
+                onClick={async () => {
+                  try {
+                    // Save module settings
+                    await fetch(`/api/modules/${selectedModule.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        progress: selectedModule.progress,
+                        monthlyMaintenancePoints: selectedModule.monthlyMaintenancePoints,
+                        softwareUrl: selectedModule.softwareUrl || null,
+                        videoUrl: selectedModule.videoUrl || null,
+                        manualUrl: selectedModule.manualUrl || null,
+                        manualFilename: selectedModule.manualFilename || null,
+                        instructions: selectedModule.instructions || null,
+                        assigneeId: selectedModule.assigneeId || null,
+                        customerContactId: selectedModule.customerContactId || null,
+                        customerContactName: selectedModule.customerContactName || null,
+                      }),
+                    })
+
+                    // Save acceptance criteria
+                    if (editingCriteria.length > 0) {
+                      await fetch(`/api/modules/${selectedModule.id}/criteria`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ criteria: editingCriteria }),
+                      })
+                    }
+
+                    mutate()
+                    setShowModuleDetailModal(false)
+                    setSelectedModule(null)
+                    setNewCriterionText('')
+                  } catch (error) {
+                    console.error('Error saving module:', error)
+                    alert('Fehler beim Speichern des Moduls')
+                  }
                 }}
                 className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
               >

@@ -41,6 +41,32 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
 
+    // Find the TeamMember to use as advisor
+    const teamMember = await prisma.teamMember.findUnique({
+      where: { id: body.advisorId },
+    })
+
+    if (!teamMember) {
+      return NextResponse.json({ error: 'Team member not found' }, { status: 400 })
+    }
+
+    // Find or create CustomerAdvisor based on TeamMember
+    let advisor = await prisma.customerAdvisor.findUnique({
+      where: { email: teamMember.email },
+    })
+
+    if (!advisor) {
+      advisor = await prisma.customerAdvisor.create({
+        data: {
+          name: teamMember.name,
+          role: teamMember.role,
+          email: teamMember.email,
+          phone: '+49 123 456789', // Default phone
+          calendlyUrl: `https://calendly.com/${teamMember.name.toLowerCase().replace(/\s+/g, '-')}`,
+        },
+      })
+    }
+
     // Create membership first
     const membership = await prisma.membership.create({
       data: {
@@ -62,7 +88,7 @@ export async function POST(request: Request) {
         email: body.email,
         customerCode: body.customerCode || Math.floor(1000 + Math.random() * 9000).toString(),
         membershipId: membership.id,
-        advisorId: body.advisorId,
+        advisorId: advisor.id,
       },
       include: {
         membership: true,

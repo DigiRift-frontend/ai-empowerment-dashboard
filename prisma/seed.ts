@@ -29,56 +29,38 @@ async function main() {
   await prisma.teamMember.deleteMany()
   await prisma.customerAdvisor.deleteMany()
 
-  // Create Team Members
+  // Create Team Members (Internes Team)
   const teamMembers = await Promise.all([
     prisma.teamMember.create({
       data: {
         id: 'tm1',
-        name: 'Max Müller',
-        role: 'Senior AI Engineer',
-        department: 'Engineering',
-        email: 'max.mueller@aiempowerment.de',
+        name: 'Kamil Gawlik',
+        role: 'Geschäftsführer & AI Engineer',
+        department: 'Management',
+        email: 'kamil@aiempowerment.de',
       },
     }),
     prisma.teamMember.create({
       data: {
         id: 'tm2',
-        name: 'Lisa Schmidt',
-        role: 'ML Engineer',
-        department: 'Data Science',
-        email: 'lisa.schmidt@aiempowerment.de',
-      },
-    }),
-    prisma.teamMember.create({
-      data: {
-        id: 'tm3',
-        name: 'Tom Weber',
-        role: 'Customer Success Manager',
-        department: 'Customer Success',
-        email: 'tom.weber@aiempowerment.de',
-      },
-    }),
-    prisma.teamMember.create({
-      data: {
-        id: 'tm4',
-        name: 'Anna Fischer',
-        role: 'Solution Architect',
-        department: 'Architecture',
-        email: 'anna.fischer@aiempowerment.de',
+        name: 'Kian Gawlik',
+        role: 'AI Engineer',
+        department: 'Engineering',
+        email: 'kian@aiempowerment.de',
       },
     }),
   ])
   console.log(`Created ${teamMembers.length} team members`)
 
-  // Create Customer Advisor
+  // Create Customer Advisor (identisch mit TeamMember für Default-Zuweisung)
   const advisor = await prisma.customerAdvisor.create({
     data: {
       id: 'advisor1',
-      name: 'Sarah Meyer',
-      role: 'Customer Success Manager',
-      email: 'sarah.meyer@aiempowerment.de',
+      name: 'Kamil Gawlik',
+      role: 'Geschäftsführer & AI Engineer',
+      email: 'kamil@aiempowerment.de',
       phone: '+49 123 456789',
-      calendlyUrl: 'https://calendly.com/sarah-meyer',
+      calendlyUrl: 'https://calendly.com/kamil-gawlik',
     },
   })
   console.log('Created customer advisor')
@@ -617,7 +599,7 @@ async function main() {
         softwareUrl: 'https://invoice.innovatetech.aiempowerment.de',
         showInRoadmap: true,
         customerId: customer2.id,
-        assigneeId: 'tm4',
+        assigneeId: 'tm1',
         acceptanceStatus: 'akzeptiert',
       },
     }),

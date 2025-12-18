@@ -85,6 +85,11 @@ enum NotificationType {
   budget_warning
 }
 
+enum AdminMessageType {
+  normal
+  status_update
+}
+
 // ==================== MODELS ====================
 
 // Kundenberater
@@ -241,6 +246,12 @@ model Module {
   monthlyMaintenancePoints Int     @default(0)
   softwareUrl              String?
 
+  // Anleitungen & Dokumentation
+  videoUrl       String? // Link zu Anleitungsvideo
+  instructions   String? // Textanleitung für Nutzung/Test
+  manualUrl      String? // Link/Pfad zu Handbuch/PDF
+  manualFilename String? // Originaler Dateiname des Handbuchs
+
   // Akzeptanz
   acceptanceStatus AcceptanceStatus?
   acceptedAt       DateTime?
@@ -261,8 +272,13 @@ model Module {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  // Interner Verantwortlicher (aus dem internen Team)
   assigneeId String?
   assignee   TeamMember? @relation(fields: [assigneeId], references: [id])
+
+  // Kunden-Verantwortlicher (aus dem Kunden-Team)
+  customerContactId   String?
+  customerContactName String? // Fallback wenn kein Team-Mitglied ausgewählt
 
   acceptanceCriteria   AcceptanceCriterion[]
   testFeedback         TestFeedback[]
@@ -482,11 +498,12 @@ model Notification {
 
 // Admin Nachrichten
 model AdminMessage {
-  id       String  @id @default(cuid())
-  subject  String
-  content  String
-  read     Boolean @default(false)
-  from     String
+  id          String           @id @default(cuid())
+  subject     String
+  content     String
+  read        Boolean          @default(false)
+  from        String
+  messageType AdminMessageType @default(normal)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)

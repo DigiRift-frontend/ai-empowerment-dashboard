@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useCustomer } from '@/hooks/use-customers'
 import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/utils'
@@ -18,6 +19,8 @@ import {
   CheckCircle,
   Loader2,
   Inbox,
+  RefreshCw,
+  Filter,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -28,6 +31,7 @@ interface AdminMessage {
   read: boolean
   from: string
   createdAt: string
+  messageType?: 'normal' | 'status_update'
 }
 
 export default function MessagesPage() {
@@ -40,9 +44,19 @@ export default function MessagesPage() {
   const notifications = customer?.notifications || []
 
   const [selectedMessage, setSelectedMessage] = useState<AdminMessage | null>(null)
+  const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
 
   const unreadMessages = messages.filter((m) => !m.read).length
   const pendingActions = notifications.filter((n: any) => n.actionRequired && !n.read).length
+
+  // Filter messages by type
+  const filteredMessages = messages.filter((m) => {
+    if (messageFilter === 'all') return true
+    return (m.messageType || 'normal') === messageFilter
+  })
+
+  const statusUpdateCount = messages.filter((m) => m.messageType === 'status_update').length
+  const normalMessageCount = messages.filter((m) => (m.messageType || 'normal') === 'normal').length
 
   // Select first message when messages load
   useEffect(() => {
@@ -160,47 +174,101 @@ export default function MessagesPage() {
                   <span className="text-sm font-normal text-gray-500">{messages.length}</span>
                 </CardTitle>
               </CardHeader>
+
+              {/* Message Type Filter */}
+              {messages.length > 0 && (
+                <div className="flex gap-2 px-4 py-2 border-b border-gray-100">
+                  <button
+                    onClick={() => setMessageFilter('all')}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                      messageFilter === 'all'
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Alle ({messages.length})
+                  </button>
+                  <button
+                    onClick={() => setMessageFilter('status_update')}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                      messageFilter === 'status_update'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Status ({statusUpdateCount})
+                  </button>
+                  <button
+                    onClick={() => setMessageFilter('normal')}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                      messageFilter === 'normal'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Mail className="h-3 w-3" />
+                    Nachrichten ({normalMessageCount})
+                  </button>
+                </div>
+              )}
+
               <CardContent className="p-0">
-                {messages.length === 0 ? (
+                {filteredMessages.length === 0 ? (
                   <div className="p-8 text-center">
                     <Inbox className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                    <p className="text-sm text-gray-500">Keine Nachrichten vorhanden</p>
+                    <p className="text-sm text-gray-500">
+                      {messageFilter === 'status_update'
+                        ? 'Keine Status-Updates vorhanden'
+                        : messageFilter === 'normal'
+                        ? 'Keine Nachrichten vorhanden'
+                        : 'Keine Nachrichten vorhanden'}
+                    </p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {messages.map((message) => (
-                      <button
-                        key={message.id}
-                        onClick={() => handleSelectMessage(message)}
-                        className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-gray-50 ${
-                          selectedMessage?.id === message.id ? 'bg-primary-50' : ''
-                        } ${!message.read ? 'bg-blue-50/50' : ''}`}
-                      >
-                        <div className={`shrink-0 rounded-lg p-2 ${message.read ? 'bg-gray-100' : 'bg-blue-100'}`}>
-                          {message.read ? (
-                            <MailOpen className="h-4 w-4 text-gray-500" />
-                          ) : (
-                            <Mail className="h-4 w-4 text-blue-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className={`truncate text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
-                              {message.subject}
-                            </p>
-                            {!message.read && (
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                    {filteredMessages.map((message) => {
+                      const isStatusUpdate = message.messageType === 'status_update'
+                      return (
+                        <button
+                          key={message.id}
+                          onClick={() => handleSelectMessage(message)}
+                          className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-gray-50 ${
+                            selectedMessage?.id === message.id ? 'bg-primary-50' : ''
+                          } ${!message.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''}`}
+                        >
+                          <div className={`shrink-0 rounded-lg p-2 ${
+                            isStatusUpdate
+                              ? (message.read ? 'bg-orange-50' : 'bg-orange-100')
+                              : (message.read ? 'bg-gray-100' : 'bg-blue-100')
+                          }`}>
+                            {isStatusUpdate ? (
+                              <RefreshCw className={`h-4 w-4 ${message.read ? 'text-orange-400' : 'text-orange-600'}`} />
+                            ) : message.read ? (
+                              <MailOpen className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <Mail className="h-4 w-4 text-blue-600" />
                             )}
                           </div>
-                          <p className="mt-0.5 truncate text-xs text-gray-500">
-                            {message.from}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-400">
-                            {formatDate(message.createdAt)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`truncate text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                                {message.subject}
+                              </p>
+                              {!message.read && (
+                                <span className={`h-2 w-2 shrink-0 rounded-full ${isStatusUpdate ? 'bg-orange-500' : 'bg-blue-500'}`} />
+                              )}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-gray-500">
+                              {message.from}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {formatDate(message.createdAt)}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

@@ -80,7 +80,7 @@ export const mockModules: Module[] = [
     id: 'mod3',
     name: 'E-Mail Klassifikation',
     description: 'Automatische Sortierung und Priorisierung von E-Mails',
-    status: 'in-arbeit',
+    status: 'in_arbeit',
     priority: 'mittel',
     progress: 75,
     monthlyMaintenancePoints: 6,
@@ -195,7 +195,7 @@ export const mockRoadmapItems: RoadmapItem[] = [
     id: 'ri2',
     name: 'Vertriebsprognose System',
     description: 'KI-basierte Vorhersage von Verkaufschancen und Lead-Scoring',
-    status: 'in-arbeit',
+    status: 'in_arbeit',
     priority: 'hoch',
     progress: 35,
     monthlyMaintenancePoints: 0,
@@ -220,7 +220,7 @@ export const mockRoadmapItems: RoadmapItem[] = [
     id: 'ri3',
     name: 'E-Mail Klassifikation',
     description: 'Automatische Sortierung und Priorisierung von E-Mails',
-    status: 'im-test',
+    status: 'im_test',
     priority: 'mittel',
     progress: 90,
     monthlyMaintenancePoints: 0,
@@ -569,5 +569,5 @@ export function getPendingAcceptanceItems(): typeof mockRoadmapItems {
 
 // Hilfsfunktion für Projekte die getestet werden müssen
 export function getTestRequiredItems(): typeof mockRoadmapItems {
-  return mockRoadmapItems.filter((item) => item.status === 'im-test')
+  return mockRoadmapItems.filter((item) => item.status === 'im_test')
 }

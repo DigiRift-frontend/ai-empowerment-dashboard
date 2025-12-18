@@ -12,8 +12,8 @@ interface ModuleCardProps {
 export function ModuleCard({ module, onClick }: ModuleCardProps) {
   const statusConfig = {
     geplant: { label: 'Geplant', variant: 'secondary' as const, icon: Settings },
-    'in-arbeit': { label: 'In Arbeit', variant: 'warning' as const, icon: Wrench },
-    'im-test': { label: 'Im Test', variant: 'default' as const, icon: Settings },
+    in_arbeit: { label: 'In Arbeit', variant: 'warning' as const, icon: Wrench },
+    im_test: { label: 'Im Test', variant: 'default' as const, icon: Settings },
     abgeschlossen: { label: 'Live', variant: 'success' as const, icon: Zap },
   }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { useCustomers, createCustomer } from '@/hooks/use-customers'
-import { useAdvisors } from '@/hooks/use-advisors'
+import { useTeam } from '@/hooks/use-team'
 import { Search, Plus, Filter, Eye, Edit, Package, Users, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -15,7 +15,7 @@ const tierConfig = {
 
 export default function CustomersPage() {
   const { customers, isLoading, mutate } = useCustomers()
-  const { advisors, isLoading: advisorsLoading } = useAdvisors()
+  const { team, isLoading: teamLoading } = useTeam()
   const [searchTerm, setSearchTerm] = useState('')
   const [tierFilter, setTierFilter] = useState<string>('alle')
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
@@ -30,12 +30,12 @@ export default function CustomersPage() {
     advisorId: '',
   })
 
-  // Set default advisorId when advisors load
+  // Set default advisorId when team members load
   useEffect(() => {
-    if (advisors.length > 0 && !newCustomer.advisorId) {
-      setNewCustomer(prev => ({ ...prev, advisorId: advisors[0].id }))
+    if (team && team.length > 0 && !newCustomer.advisorId) {
+      setNewCustomer(prev => ({ ...prev, advisorId: team[0].id }))
     }
-  }, [advisors, newCustomer.advisorId])
+  }, [team, newCustomer.advisorId])
 
   const filteredCustomers = customers.filter((customer: any) => {
     const matchesSearch =
@@ -57,13 +57,13 @@ export default function CustomersPage() {
       })
       mutate()
       setShowNewCustomerModal(false)
-      // Reset form, keeping the first advisor as default
+      // Reset form, keeping the first team member as default
       setNewCustomer({
         name: '',
         companyName: '',
         email: '',
         tier: 'M',
-        advisorId: advisors.length > 0 ? advisors[0].id : ''
+        advisorId: team && team.length > 0 ? team[0].id : ''
       })
     } catch (error) {
       console.error('Error creating customer:', error)
@@ -336,7 +336,7 @@ export default function CustomersPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Interner Ansprechpartner (Berater) *
+                    Interner Ansprechpartner (Team) *
                   </label>
                   <select
                     value={newCustomer.advisorId}
@@ -344,14 +344,14 @@ export default function CustomersPage() {
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                     required
                   >
-                    {advisorsLoading ? (
+                    {teamLoading ? (
                       <option value="">Laden...</option>
-                    ) : advisors.length === 0 ? (
-                      <option value="">Keine Ansprechpartner</option>
+                    ) : !team || team.length === 0 ? (
+                      <option value="">Keine Teammitglieder</option>
                     ) : (
-                      advisors.map((advisor: any) => (
-                        <option key={advisor.id} value={advisor.id}>
-                          {advisor.name} - {advisor.role}
+                      team.map((member: any) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name} - {member.role}
                         </option>
                       ))
                     )}

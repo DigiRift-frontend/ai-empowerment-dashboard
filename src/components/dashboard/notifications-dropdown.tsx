@@ -15,6 +15,7 @@ import {
   X,
   ChevronRight,
   Mail,
+  RefreshCw,
 } from 'lucide-react'
 
 interface AdminMessage {
@@ -24,6 +25,7 @@ interface AdminMessage {
   read: boolean
   from: string
   createdAt: string
+  messageType?: 'normal' | 'status_update'
 }
 
 interface NotificationsDropdownProps {
@@ -43,10 +45,21 @@ export function NotificationsDropdown({
 }: NotificationsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'notifications' | 'messages'>('all')
+  const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
 
   const unreadNotifications = notifications.filter((n) => !n.read).length
   const unreadMessages = messages.filter((m) => !m.read).length
   const unreadCount = unreadNotifications + unreadMessages
+  const actionRequiredCount = notifications.filter((n) => n.actionRequired).length
+
+  // Filter messages by type
+  const filteredMessages = messages.filter((m) => {
+    if (messageFilter === 'all') return true
+    return (m.messageType || 'normal') === messageFilter
+  })
+
+  const statusUpdateCount = messages.filter((m) => m.messageType === 'status_update').length
+  const normalMessageCount = messages.filter((m) => (m.messageType || 'normal') === 'normal').length
 
   const getIcon = (type: Notification['type']) => {
     switch (type) {
@@ -110,9 +123,11 @@ export function NotificationsDropdown({
         onClick={() => setIsOpen(!isOpen)}
         className="relative rounded-lg p-2 hover:bg-gray-100"
       >
-        <Bell className="h-5 w-5 text-gray-500" />
+        <Bell className={`h-5 w-5 ${actionRequiredCount > 0 ? 'text-red-500' : 'text-gray-500'}`} />
         {unreadCount > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          <span className={`absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ${
+            actionRequiredCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-blue-500'
+          }`}>
             {unreadCount}
           </span>
         )}
@@ -130,7 +145,15 @@ export function NotificationsDropdown({
           <div className="absolute right-0 top-full z-20 mt-2 w-96 rounded-xl border border-gray-200 bg-white shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <h3 className="font-semibold text-gray-900">Benachrichtigungen</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-gray-900">Benachrichtigungen</h3>
+                {actionRequiredCount > 0 && (
+                  <span className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                    <AlertTriangle className="h-3 w-3" />
+                    {actionRequiredCount} {actionRequiredCount === 1 ? 'Aktion' : 'Aktionen'}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
                   <button
@@ -198,6 +221,44 @@ export function NotificationsDropdown({
               </button>
             </div>
 
+            {/* Message Type Filter - only show when messages tab is active */}
+            {activeTab === 'messages' && messages.length > 0 && (
+              <div className="flex gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <button
+                  onClick={() => setMessageFilter('all')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                    messageFilter === 'all'
+                      ? 'bg-primary-100 text-primary-700'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  Alle ({messages.length})
+                </button>
+                <button
+                  onClick={() => setMessageFilter('status_update')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                    messageFilter === 'status_update'
+                      ? 'bg-orange-100 text-orange-700'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Status ({statusUpdateCount})
+                </button>
+                <button
+                  onClick={() => setMessageFilter('normal')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
+                    messageFilter === 'normal'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Mail className="h-3 w-3" />
+                  Normal ({normalMessageCount})
+                </button>
+              </div>
+            )}
+
             {/* Content List */}
             <div className="max-h-96 overflow-y-auto">
               {/* Notifications */}
@@ -244,59 +305,76 @@ export function NotificationsDropdown({
               )}
 
               {/* Messages */}
-              {(activeTab === 'all' || activeTab === 'messages') && messages.length > 0 && (
+              {(activeTab === 'all' || activeTab === 'messages') && (activeTab === 'all' ? messages : filteredMessages).length > 0 && (
                 <>
                   {activeTab === 'all' && notifications.length > 0 && messages.length > 0 && (
                     <div className="bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
                       Nachrichten
                     </div>
                   )}
-                  {messages.map((message) => (
-                    <Link
-                      key={message.id}
-                      href="/messages"
-                      onClick={() => {
-                        onMarkMessageAsRead?.(message.id)
-                        setIsOpen(false)
-                      }}
-                      className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
-                        !message.read ? 'bg-blue-50/50' : ''
-                      }`}
-                    >
-                      <div className={`shrink-0 rounded-lg p-2 ${message.read ? 'bg-gray-100' : 'bg-blue-100'}`}>
-                        <Mail className={`h-4 w-4 ${message.read ? 'text-gray-500' : 'text-blue-600'}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
-                            {message.subject}
-                          </p>
-                          {!message.read && (
-                            <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                              Neu
-                            </span>
+                  {(activeTab === 'all' ? messages : filteredMessages).map((message) => {
+                    const isStatusUpdate = message.messageType === 'status_update'
+                    return (
+                      <Link
+                        key={message.id}
+                        href="/messages"
+                        onClick={() => {
+                          onMarkMessageAsRead?.(message.id)
+                          setIsOpen(false)
+                        }}
+                        className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
+                          !message.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''
+                        }`}
+                      >
+                        <div className={`shrink-0 rounded-lg p-2 ${
+                          isStatusUpdate
+                            ? (message.read ? 'bg-orange-50' : 'bg-orange-100')
+                            : (message.read ? 'bg-gray-100' : 'bg-blue-100')
+                        }`}>
+                          {isStatusUpdate ? (
+                            <RefreshCw className={`h-4 w-4 ${message.read ? 'text-orange-400' : 'text-orange-600'}`} />
+                          ) : (
+                            <Mail className={`h-4 w-4 ${message.read ? 'text-gray-500' : 'text-blue-600'}`} />
                           )}
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          Von: {message.from}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {formatDate(message.createdAt)}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
-                    </Link>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                              {message.subject}
+                            </p>
+                            {!message.read && (
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                isStatusUpdate
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {isStatusUpdate ? 'Status' : 'Neu'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            Von: {message.from}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {formatDate(message.createdAt)}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+                      </Link>
+                    )
+                  })}
                 </>
               )}
 
               {/* Empty state */}
               {((activeTab === 'all' && notifications.length === 0 && messages.length === 0) ||
                 (activeTab === 'notifications' && notifications.length === 0) ||
-                (activeTab === 'messages' && messages.length === 0)) && (
+                (activeTab === 'messages' && filteredMessages.length === 0)) && (
                 <div className="flex flex-col items-center justify-center py-8 text-gray-500">
                   <Bell className="mb-2 h-8 w-8 text-gray-300" />
-                  <p>Keine {activeTab === 'messages' ? 'Nachrichten' : activeTab === 'notifications' ? 'Updates' : 'Benachrichtigungen'}</p>
+                  <p>Keine {activeTab === 'messages'
+                    ? (messageFilter === 'status_update' ? 'Status-Updates' : messageFilter === 'normal' ? 'Nachrichten' : 'Nachrichten')
+                    : activeTab === 'notifications' ? 'Updates' : 'Benachrichtigungen'}</p>
                 </div>
               )}
             </div>

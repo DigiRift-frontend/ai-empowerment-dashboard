@@ -45,7 +45,7 @@ export function getStatusColor(status: string): string {
     live: 'bg-success-500',
     optimierung: 'bg-primary-500',
     geplant: 'bg-gray-400',
-    'in-arbeit': 'bg-primary-500',
+    'in_arbeit': 'bg-primary-500',
     abgeschlossen: 'bg-success-500',
   }
   return colors[status.toLowerCase()] || 'bg-gray-400'
