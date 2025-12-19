@@ -58,8 +58,8 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
 
   const fetchNotifications = async () => {
     try {
-      // Only fetch incoming unread messages for notifications
-      const response = await fetch('/api/admin/messages?unread=true&direction=incoming&limit=5')
+      // Only fetch incoming unread messages for notifications (excluding status updates from admin)
+      const response = await fetch('/api/admin/messages?unread=true&direction=incoming&excludeStatusUpdates=true&limit=5')
       if (response.ok) {
         const data = await response.json()
         setNotifications(data)

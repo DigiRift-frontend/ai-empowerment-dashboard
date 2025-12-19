@@ -63,7 +63,7 @@ export function Sidebar() {
   return (
     <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-gray-50">
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center bg-white border-b border-gray-200 px-4">
+      <Link href="/" className="flex h-16 items-center justify-center bg-white border-b border-gray-200 px-4 hover:bg-gray-50 transition-colors">
         <div className="relative h-12 w-32">
           <Image
             src="/blue_cropped.png"
@@ -72,7 +72,7 @@ export function Sidebar() {
             className="object-contain"
           />
         </div>
-      </div>
+      </Link>
 
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4">

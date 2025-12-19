@@ -56,7 +56,8 @@ export default function CostsPage() {
   const monthlySummaries = useMemo(() => {
     if (!customer?.transactions) return []
 
-    const summaries: Record<string, { month: string; total: number; entwicklung: number; wartung: number; schulung: number }> = {}
+    type MonthlySummary = { month: string; total: number; entwicklung: number; wartung: number; schulung: number }
+    const summaries: Record<string, MonthlySummary> = {}
 
     customer.transactions.forEach((t: any) => {
       const month = t.date.slice(0, 7)
@@ -64,7 +65,10 @@ export default function CostsPage() {
         summaries[month] = { month, total: 0, entwicklung: 0, wartung: 0, schulung: 0 }
       }
       summaries[month].total += t.points
-      summaries[month][t.category as keyof typeof summaries[string]] += t.points
+      const category = t.category as 'entwicklung' | 'wartung' | 'schulung'
+      if (category in summaries[month]) {
+        summaries[month][category] += t.points
+      }
     })
 
     return Object.values(summaries).sort((a, b) => a.month.localeCompare(b.month))

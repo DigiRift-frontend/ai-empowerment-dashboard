@@ -8,10 +8,12 @@ export async function GET(request: Request) {
     const unreadOnly = searchParams.get('unread') === 'true'
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     const direction = searchParams.get('direction') as 'incoming' | 'outgoing' | null
+    const excludeStatusUpdates = searchParams.get('excludeStatusUpdates') === 'true'
 
     const where: Record<string, unknown> = {}
     if (unreadOnly) where.read = false
     if (direction) where.direction = direction
+    if (excludeStatusUpdates) where.messageType = { not: 'status_update' }
 
     const messages = await prisma.adminMessage.findMany({
       where: Object.keys(where).length > 0 ? where : undefined,

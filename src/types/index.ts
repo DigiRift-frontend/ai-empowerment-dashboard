@@ -71,6 +71,8 @@ export interface ExternalCost {
 export type ModuleStatus = 'geplant' | 'in_arbeit' | 'im_test' | 'abgeschlossen'
 export type ModulePriority = 'hoch' | 'mittel' | 'niedrig'
 export type AcceptanceStatus = 'ausstehend' | 'akzeptiert' | 'abgelehnt'
+export type AbnahmeStatus = 'ausstehend' | 'abgenommen' | 'abgelehnt'
+export type LiveStatus = 'aktiv' | 'pausiert' | 'deaktiviert'
 
 // Test Feedback
 export interface TestFeedback {
@@ -84,6 +86,15 @@ export interface AcceptanceCriterion {
   id: string
   description: string
   accepted?: boolean
+}
+
+// Assignee (internes Teammitglied)
+export interface ModuleAssignee {
+  id: string
+  name: string
+  role?: string
+  email?: string
+  calendlyUrl?: string
 }
 
 // Unified Module (combines old Module + RoadmapItem)
@@ -104,11 +115,13 @@ export interface Module {
   softwareUrl?: string // Link zur laufenden Software (wenn live)
   // Anleitungen & Dokumentation
   videoUrl?: string // Link zu Anleitungsvideo
+  videoThumbnail?: string // Thumbnail für Video
   instructions?: string // Textanleitung für Nutzung/Test
   manualUrl?: string // Link/Pfad zu Handbuch/PDF
   manualFilename?: string // Originaler Dateiname des Handbuchs
   // Zugewiesene Person (intern)
   assigneeId?: string
+  assignee?: ModuleAssignee // Aufgelöstes Teammitglied
   // Kunden-Verantwortlicher
   customerContactId?: string
   customerContactName?: string
@@ -121,6 +134,12 @@ export interface Module {
   testFeedback?: TestFeedback[]
   testCompletedAt?: string
   testCompletedBy?: string
+  // Abnahme (nach Fertigstellung - löst Wartungskosten aus)
+  abnahmeStatus?: AbnahmeStatus
+  abnahmeAt?: string
+  abnahmeBy?: string
+  // Live-Status (unabhängig vom Kanban-Status)
+  liveStatus?: LiveStatus
   // Meta
   createdAt: string
   updatedAt: string

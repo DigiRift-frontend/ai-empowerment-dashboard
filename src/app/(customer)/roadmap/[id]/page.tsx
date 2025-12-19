@@ -29,6 +29,8 @@ import {
   PlayCircle,
   BookOpen,
   Settings,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Module, TestFeedback, AcceptanceCriterion } from '@/types'
 
@@ -65,6 +67,27 @@ export default function ProjectDetailPage() {
 
   // Dismissed alerts state
   const [dismissedRejectionAlert, setDismissedRejectionAlert] = useState(false)
+  // Show test completed alert only right after completing (not on page reload)
+  const [showTestCompletedAlert, setShowTestCompletedAlert] = useState(false)
+  const [testCompletedWithFeedback, setTestCompletedWithFeedback] = useState(false)
+
+  // Abnahme state
+  const [isAbnahme, setIsAbnahme] = useState(false)
+  const [showAbnahmeSuccessAlert, setShowAbnahmeSuccessAlert] = useState(false)
+  const [showAbnahmeRejectModal, setShowAbnahmeRejectModal] = useState(false)
+  const [abnahmeRejectComment, setAbnahmeRejectComment] = useState('')
+  const [isRejectingAbnahme, setIsRejectingAbnahme] = useState(false)
+  const [showAbnahmeRejectedAlert, setShowAbnahmeRejectedAlert] = useState(false)
+
+  // Collapsible state for acceptance criteria - auto-expand when action required
+  const [isCriteriaExpanded, setIsCriteriaExpanded] = useState(false)
+
+  // Auto-expand criteria when action is required (status = ausstehend)
+  useEffect(() => {
+    if (project && project.acceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0) {
+      setIsCriteriaExpanded(true)
+    }
+  }, [project?.acceptanceStatus, project?.acceptanceCriteria])
 
   // Fetch project data
   useEffect(() => {
@@ -171,7 +194,7 @@ export default function ProjectDetailPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subject: `Akzeptanzkriterien akzeptiert: ${project.name}`,
-            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" akzeptiert.\n\nDas Modul kann nun in die nächste Phase übergehen.`,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" akzeptiert.\n\nDas Modul kann nun entwickelt werden.`,
             from: `${customer.name} (${customer.companyName})`,
             direction: 'incoming',
           }),
@@ -251,10 +274,162 @@ export default function ProjectDetailPage() {
     }
   }
 
+  // Handle final Abnahme (after development is complete) - triggers maintenance costs
+  const handleAbnahme = async () => {
+    setIsAbnahme(true)
+    try {
+      // Update module abnahme status
+      await fetch(`/api/modules/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          abnahmeStatus: 'abgenommen',
+          abnahmeAt: new Date().toISOString(),
+          abnahmeBy: customer?.name || 'Kunde',
+        }),
+      })
+
+      if (customer?.id) {
+        // Mark Abnahme notifications as done
+        const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+        const notifications = await notificationsRes.json()
+        const abnahmeNotification = notifications.find(
+          (n: { type: string; relatedProjectId: string; actionRequired: boolean; title?: string }) =>
+            n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired && n.title?.includes('Abnahme')
+        )
+        if (abnahmeNotification) {
+          await fetch(`/api/customers/${customer.id}/notifications/${abnahmeNotification.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionRequired: false }),
+          })
+        }
+
+        // Send Abnahme message to admin
+        await fetch(`/api/customers/${customer.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `Modul abgenommen: ${project.name}`,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat das Modul "${project.name}" abgenommen.\n\nDie monatliche Wartung (${project.monthlyMaintenancePoints} Punkte/Monat) ist nun aktiv.`,
+            from: `${customer.name} (${customer.companyName})`,
+            direction: 'incoming',
+          }),
+        })
+
+        // Calculate and book pro-rata maintenance cost if module has maintenance points
+        if (project.monthlyMaintenancePoints && project.monthlyMaintenancePoints > 0 && customer.membership) {
+          const today = new Date()
+          const periodEnd = new Date(customer.membership.periodEnd)
+          const periodStart = new Date(customer.membership.periodStart)
+
+          // Calculate total days in billing period
+          const totalDaysInPeriod = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24))
+
+          // Calculate remaining days from today to period end
+          const remainingDays = Math.max(0, Math.ceil((periodEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+
+          if (remainingDays > 0 && totalDaysInPeriod > 0) {
+            // Calculate pro-rata maintenance points
+            const proRataPoints = Math.round((project.monthlyMaintenancePoints / totalDaysInPeriod) * remainingDays * 100) / 100
+
+            // Create point transaction for pro-rata maintenance cost
+            await fetch(`/api/customers/${customer.id}/points`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                description: `Wartung (anteilig): ${project.name} - ${remainingDays} von ${totalDaysInPeriod} Tagen`,
+                points: proRataPoints,
+                date: today.toISOString(),
+                category: 'wartung',
+                moduleId: projectId,
+              }),
+            })
+          }
+        }
+      }
+
+      // Update local state
+      setProject(prev => prev ? {
+        ...prev,
+        abnahmeStatus: 'abgenommen',
+        abnahmeAt: new Date().toISOString(),
+        abnahmeBy: customer?.name || 'Kunde',
+      } : null)
+      setShowAbnahmeSuccessAlert(true)
+    } catch (error) {
+      console.error('Error completing Abnahme:', error)
+      alert('Fehler bei der Abnahme')
+    } finally {
+      setIsAbnahme(false)
+    }
+  }
+
+  // Handle Abnahme rejection
+  const handleRejectAbnahme = async () => {
+    if (!abnahmeRejectComment.trim()) {
+      alert('Bitte geben Sie einen Kommentar ein, warum Sie die Abnahme ablehnen.')
+      return
+    }
+
+    setIsRejectingAbnahme(true)
+    try {
+      // Update module abnahme status
+      await fetch(`/api/modules/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          abnahmeStatus: 'abgelehnt',
+        }),
+      })
+
+      if (customer?.id) {
+        // Send rejection message to admin
+        await fetch(`/api/customers/${customer.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `Abnahme abgelehnt: ${project.name}`,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat die Abnahme für das Modul "${project.name}" abgelehnt.\n\nBegründung:\n${abnahmeRejectComment}`,
+            from: `${customer.name} (${customer.companyName})`,
+            direction: 'incoming',
+          }),
+        })
+
+        // Mark Abnahme notifications as done
+        const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+        const notifications = await notificationsRes.json()
+        const abnahmeNotification = notifications.find(
+          (n: { type: string; relatedProjectId: string; actionRequired: boolean; title?: string }) =>
+            n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired && n.title?.includes('Abnahme')
+        )
+        if (abnahmeNotification) {
+          await fetch(`/api/customers/${customer.id}/notifications/${abnahmeNotification.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actionRequired: false, read: true }),
+          })
+        }
+      }
+
+      // Update local state
+      setProject(prev => prev ? { ...prev, abnahmeStatus: 'abgelehnt' } : null)
+      setShowAbnahmeRejectModal(false)
+      setAbnahmeRejectComment('')
+      setShowAbnahmeRejectedAlert(true)
+    } catch (error) {
+      console.error('Error rejecting Abnahme:', error)
+      alert('Fehler beim Ablehnen der Abnahme')
+    } finally {
+      setIsRejectingAbnahme(false)
+    }
+  }
+
   const handleSubmitFeedback = async () => {
     if (!newFeedback.trim()) return
     setIsSubmittingFeedback(true)
     try {
+      // Submit feedback
       const response = await fetch(`/api/modules/${projectId}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,6 +440,49 @@ export default function ProjectDetailPage() {
         const savedFeedback = await response.json()
         setTestFeedback([...testFeedback, savedFeedback])
         setNewFeedback('')
+
+        // Feedback beendet automatisch den Test
+        await fetch(`/api/modules/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            testCompletedAt: new Date().toISOString(),
+            testCompletedBy: customer?.name || 'Kunde',
+          }),
+        })
+
+        // Send feedback notification to admin
+        if (customer?.id) {
+          await fetch(`/api/customers/${customer.id}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: `Test-Feedback erhalten: ${project.name}`,
+              content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat Test-Feedback für das Modul "${project.name}" gegeben:\n\n"${newFeedback}"\n\nDer Test wurde damit beendet. Bitte prüfen Sie das Feedback und starten Sie bei Bedarf einen neuen Test.`,
+              from: `${customer.name} (${customer.companyName})`,
+              direction: 'incoming',
+            }),
+          })
+
+          // Mark test_required notifications as done
+          const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
+          const notifications = await notificationsRes.json()
+          const testNotification = notifications.find(
+            (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
+              n.type === 'test_required' && n.relatedProjectId === projectId && n.actionRequired
+          )
+          if (testNotification) {
+            await fetch(`/api/customers/${customer.id}/notifications/${testNotification.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false }),
+            })
+          }
+        }
+
+        setTestCompleted(true)
+        setTestCompletedWithFeedback(true)
+        setShowTestCompletedAlert(true)
       }
     } catch (error) {
       console.error('Error submitting feedback:', error)
@@ -286,8 +504,20 @@ export default function ProjectDetailPage() {
         }),
       })
 
-      // Mark test_required notifications as done
       if (customer?.id) {
+        // Send success message to admin
+        await fetch(`/api/customers/${customer.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `Test bestanden: ${project.name}`,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat den Test für das Modul "${project.name}" erfolgreich abgeschlossen.\n\nKein Feedback - alles funktioniert wie gewünscht.`,
+            from: `${customer.name} (${customer.companyName})`,
+            direction: 'incoming',
+          }),
+        })
+
+        // Mark test_required notifications as done
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
         const testNotification = notifications.find(
@@ -304,6 +534,8 @@ export default function ProjectDetailPage() {
       }
 
       setTestCompleted(true)
+      setTestCompletedWithFeedback(false)
+      setShowTestCompletedAlert(true)
     } catch (error) {
       console.error('Error completing test:', error)
       alert('Fehler beim Abschließen des Tests')
@@ -420,8 +652,8 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
             <div className="flex-1">
               <p className="font-medium text-purple-800">Dieses Projekt befindet sich im Test</p>
               <p className="mt-1 text-sm text-purple-700">
-                Bitte testen Sie die Funktionalität und geben Sie Feedback, wenn etwas nicht passt.
-                Wenn alles funktioniert, klicken Sie auf &quot;Test abgeschlossen&quot;.
+                Bitte testen Sie die Funktionalität. Wenn etwas nicht passt, geben Sie uns Feedback.
+                Mit dem Absenden des Feedbacks wird der Test automatisch beendet.
               </p>
               {project.softwareUrl && (
                 <a
@@ -438,15 +670,143 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
           </div>
         )}
 
-        {/* Test Completed Alert */}
-        {testCompleted && (
+        {/* Test Completed Alert - only shown right after completing test */}
+        {showTestCompletedAlert && (
+          <div className={`mb-6 flex items-start gap-3 rounded-lg border p-4 ${
+            testCompletedWithFeedback
+              ? 'border-yellow-200 bg-yellow-50'
+              : 'border-green-200 bg-green-50'
+          }`}>
+            <CheckCheck className={`h-5 w-5 shrink-0 ${
+              testCompletedWithFeedback ? 'text-yellow-600' : 'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <p className={`font-medium ${
+                testCompletedWithFeedback ? 'text-yellow-800' : 'text-green-800'
+              }`}>
+                {testCompletedWithFeedback
+                  ? 'Test beendet - Feedback wurde gesendet'
+                  : 'Test bestanden!'}
+              </p>
+              <p className={`mt-1 text-sm ${
+                testCompletedWithFeedback ? 'text-yellow-700' : 'text-green-700'
+              }`}>
+                {testCompletedWithFeedback
+                  ? 'Vielen Dank für Ihr Feedback. Wir werden uns darum kümmern und ggf. einen neuen Test starten.'
+                  : 'Vielen Dank! Der Test wurde erfolgreich abgeschlossen. Das Modul kann nun fertiggestellt werden.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowTestCompletedAlert(false)}
+              className={testCompletedWithFeedback ? 'text-yellow-600 hover:text-yellow-800' : 'text-green-600 hover:text-green-800'}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Alert for pending Abnahme */}
+        {project.status === 'abgeschlossen' && project.abnahmeStatus === 'ausstehend' && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border-2 border-green-400 bg-green-50 p-4">
+            <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
+            <div className="flex-1">
+              <p className="font-semibold text-green-800">Modul fertiggestellt - Ihre Abnahme ist erforderlich</p>
+              <p className="mt-1 text-sm text-green-700">
+                Das Modul ist bereit zur Abnahme. Mit der Abnahme bestätigen Sie, dass das Modul wie gewünscht funktioniert.
+                Danach wird die monatliche Wartung ({project.monthlyMaintenancePoints} Punkte) aktiviert.
+              </p>
+              <div className="mt-3 flex gap-3">
+                <button
+                  onClick={handleAbnahme}
+                  disabled={isAbnahme}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {isAbnahme ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Wird abgenommen...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Modul abnehmen
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowAbnahmeRejectModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-5 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                  Ablehnen
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Abnahme Rejected Alert */}
+        {showAbnahmeRejectedAlert && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <X className="h-5 w-5 shrink-0 text-red-600" />
+            <div className="flex-1">
+              <p className="font-medium text-red-800">Abnahme abgelehnt</p>
+              <p className="mt-1 text-sm text-red-700">
+                Ihre Ablehnung wurde an das Team gesendet. Wir werden uns mit Ihnen in Verbindung setzen.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAbnahmeRejectedAlert(false)}
+              className="text-red-600 hover:text-red-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Abnahme abgelehnt indicator */}
+        {project.abnahmeStatus === 'abgelehnt' && !showAbnahmeRejectedAlert && (
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+            <X className="h-5 w-5 text-red-600" />
+            <div>
+              <span className="font-medium text-red-800">Abnahme abgelehnt</span>
+              <span className="text-sm text-red-600 ml-2">
+                Wir werden uns mit Ihnen in Verbindung setzen.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Abnahme Success Alert - only shown right after completing Abnahme */}
+        {showAbnahmeSuccessAlert && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
             <CheckCheck className="h-5 w-5 shrink-0 text-green-600" />
-            <div>
-              <p className="font-medium text-green-800">Test erfolgreich abgeschlossen</p>
+            <div className="flex-1">
+              <p className="font-medium text-green-800">Modul erfolgreich abgenommen!</p>
               <p className="mt-1 text-sm text-green-700">
-                Vielen Dank für Ihre Rückmeldung. Das Projekt wird nun abgeschlossen.
+                Vielen Dank! Die monatliche Wartung ist nun aktiv. Sie finden das Modul jetzt in Ihrer Modulübersicht.
               </p>
+            </div>
+            <button
+              onClick={() => setShowAbnahmeSuccessAlert(false)}
+              className="text-green-600 hover:text-green-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Abnahme completed indicator */}
+        {project.abnahmeStatus === 'abgenommen' && !showAbnahmeSuccessAlert && (
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div>
+              <span className="font-medium text-green-800">Modul abgenommen</span>
+              {project.abnahmeAt && (
+                <span className="text-sm text-green-600 ml-2">
+                  am {formatDate(project.abnahmeAt)}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -545,13 +905,46 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                     </div>
                   )}
 
-                  {/* Add Feedback Form */}
+                  {/* Test Actions */}
                   {!testCompleted && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Was passt nicht? Was sollen wir verbessern?
-                        </label>
+                    <div className="mt-6 space-y-4">
+                      {/* Option 1: Everything works */}
+                      <div className="rounded-lg border-2 border-green-300 bg-green-50 p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-green-800">Alles funktioniert?</h3>
+                            <p className="mt-1 text-sm text-green-700">
+                              Test erfolgreich - keine Änderungen nötig.
+                            </p>
+                          </div>
+                          <Button
+                            onClick={handleCompleteTest}
+                            disabled={isCompletingTest}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {isCompletingTest ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Wird beendet...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Test bestanden
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Option 2: Feedback form */}
+                      <div className="rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 p-6">
+                        <div className="text-center mb-4">
+                          <h3 className="font-semibold text-gray-900">Was passt nicht?</h3>
+                          <p className="mt-1 text-sm text-gray-600">
+                            Beschreiben Sie, was nicht funktioniert oder verbessert werden soll.
+                          </p>
+                        </div>
                         <textarea
                           value={newFeedback}
                           onChange={(e) => setNewFeedback(e.target.value)}
@@ -559,58 +952,26 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                           className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                           rows={4}
                         />
-                      </div>
-                      <Button
-                        onClick={handleSubmitFeedback}
-                        disabled={!newFeedback.trim() || isSubmittingFeedback}
-                        variant="outline"
-                      >
-                        {isSubmittingFeedback ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Wird gesendet...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="mr-2 h-4 w-4" />
-                            Feedback senden
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Complete Test Button */}
-                  {!testCompleted && (
-                    <div className="mt-6 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 p-6">
-                      <div className="text-center">
-                        <h3 className="font-semibold text-gray-900">Alles funktioniert?</h3>
-                        <p className="mt-1 text-sm text-gray-600">
-                          Wenn alles wie gewünscht funktioniert, schließen Sie den Test ab.
-                          {hasUnresolvedFeedback && (
-                            <span className="mt-1 block text-yellow-600">
-                              Hinweis: Es gibt noch offenes Feedback.
-                            </span>
-                          )}
-                        </p>
-                        <Button
-                          onClick={handleCompleteTest}
-                          disabled={isCompletingTest}
-                          className="mt-4 bg-purple-600 hover:bg-purple-700"
-                          size="lg"
-                        >
-                          {isCompletingTest ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Wird abgeschlossen...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Test abgeschlossen
-                            </>
-                          )}
-                        </Button>
+                        <div className="mt-4 text-center">
+                          <Button
+                            onClick={handleSubmitFeedback}
+                            disabled={!newFeedback.trim() || isSubmittingFeedback}
+                            className="bg-purple-600 hover:bg-purple-700"
+                            size="lg"
+                          >
+                            {isSubmittingFeedback ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Wird gesendet...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="mr-2 h-4 w-4" />
+                                Feedback senden & Test beenden
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -618,105 +979,131 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </Card>
             )}
 
-            {/* Acceptance Criteria */}
+            {/* Acceptance Criteria - Collapsible */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-gray-400" />
-                  Akzeptanzkriterien
+              <CardHeader
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setIsCriteriaExpanded(!isCriteriaExpanded)}
+              >
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-gray-400" />
+                    Akzeptanzkriterien
+                    {project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
+                      <span className="text-sm font-normal text-gray-500">
+                        ({project.acceptanceCriteria.length})
+                      </span>
+                    )}
+                    {currentAcceptanceStatus === 'akzeptiert' && (
+                      <Badge variant="success" className="ml-2">Akzeptiert</Badge>
+                    )}
+                    {currentAcceptanceStatus === 'abgelehnt' && (
+                      <Badge variant="danger" className="ml-2">Abgelehnt</Badge>
+                    )}
+                    {currentAcceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
+                      <Badge variant="warning" className="ml-2">Ausstehend</Badge>
+                    )}
+                  </div>
+                  {isCriteriaExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {project.acceptanceCriteria && project.acceptanceCriteria.length > 0 ? (
-                  <div className="space-y-3">
-                    {project.acceptanceCriteria.map((criterion: AcceptanceCriterion, index: number) => (
-                      <div
-                        key={criterion.id}
-                        className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4"
-                      >
+              {isCriteriaExpanded && (
+                <CardContent>
+                  {project.acceptanceCriteria && project.acceptanceCriteria.length > 0 ? (
+                    <div className="space-y-3">
+                      {project.acceptanceCriteria.map((criterion: AcceptanceCriterion, index: number) => (
                         <div
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                            currentAcceptanceStatus === 'akzeptiert'
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-200 text-gray-600'
-                          }`}
+                          key={criterion.id}
+                          className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4"
                         >
-                          {currentAcceptanceStatus === 'akzeptiert' ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <span className="text-xs font-medium">{index + 1}</span>
-                          )}
+                          <div
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                              currentAcceptanceStatus === 'akzeptiert'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-600'
+                            }`}
+                          >
+                            {currentAcceptanceStatus === 'akzeptiert' ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <span className="text-xs font-medium">{index + 1}</span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-900">
+                              {criterion.description}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900">
-                            {criterion.description}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">Keine Akzeptanzkriterien definiert.</p>
+                  )}
+
+                  {/* Accept/Reject Buttons */}
+                  {currentAcceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
+                    <div className="mt-6 rounded-lg border-2 border-dashed border-yellow-300 bg-yellow-50 p-6">
+                      <div className="text-center">
+                        <h3 className="font-semibold text-gray-900">
+                          Akzeptanzkriterien prüfen
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-600">
+                          Bitte bestätigen oder verwerfen Sie die Akzeptanzkriterien.
+                        </p>
+                        <div className="mt-4 flex justify-center gap-3">
+                          <Button
+                            onClick={handleAccept}
+                            disabled={isAccepting}
+                            size="lg"
+                          >
+                            {isAccepting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Wird verarbeitet...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Akzeptieren
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={() => setShowRejectModal(true)}
+                            variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                            size="lg"
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Verwerfen
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Accepted Confirmation */}
+                  {currentAcceptanceStatus === 'akzeptiert' && (
+                    <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="font-medium text-green-800">Akzeptanzkriterien bestätigt</p>
+                          <p className="text-sm text-green-600">
+                            {project.acceptedAt && `Am ${formatDate(project.acceptedAt)}`}
+                            {project.acceptedBy && ` von ${project.acceptedBy}`}
                           </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">Keine Akzeptanzkriterien definiert.</p>
-                )}
-
-                {/* Accept/Reject Buttons */}
-                {currentAcceptanceStatus === 'ausstehend' && project.acceptanceCriteria && project.acceptanceCriteria.length > 0 && (
-                  <div className="mt-6 rounded-lg border-2 border-dashed border-yellow-300 bg-yellow-50 p-6">
-                    <div className="text-center">
-                      <h3 className="font-semibold text-gray-900">
-                        Akzeptanzkriterien prüfen
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-600">
-                        Bitte bestätigen oder verwerfen Sie die Akzeptanzkriterien.
-                      </p>
-                      <div className="mt-4 flex justify-center gap-3">
-                        <Button
-                          onClick={handleAccept}
-                          disabled={isAccepting}
-                          size="lg"
-                        >
-                          {isAccepting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Wird verarbeitet...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Akzeptieren
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => setShowRejectModal(true)}
-                          variant="outline"
-                          className="border-red-300 text-red-600 hover:bg-red-50"
-                          size="lg"
-                        >
-                          <X className="mr-2 h-4 w-4" />
-                          Verwerfen
-                        </Button>
-                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Accepted Confirmation */}
-                {currentAcceptanceStatus === 'akzeptiert' && (
-                  <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-green-800">Akzeptanzkriterien bestätigt</p>
-                        <p className="text-sm text-green-600">
-                          {project.acceptedAt && `Am ${formatDate(project.acceptedAt)}`}
-                          {project.acceptedBy && ` von ${project.acceptedBy}`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
+                  )}
+                </CardContent>
+              )}
             </Card>
           </div>
 
@@ -904,33 +1291,6 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               </Card>
             )}
 
-            {/* Acceptance Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Akzeptanzstatus</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`flex items-center gap-3 rounded-lg p-4 ${acceptanceInfo.color}`}>
-                  <AcceptanceIcon className="h-6 w-6" />
-                  <div>
-                    <p className="font-semibold">{acceptanceInfo.label}</p>
-                    {currentAcceptanceStatus === 'akzeptiert' && project.acceptedAt && (
-                      <p className="text-sm opacity-80">
-                        {formatDate(project.acceptedAt)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {project.acceptedBy && currentAcceptanceStatus === 'akzeptiert' && (
-                  <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-4 w-4" />
-                    <span>Bestätigt von {project.acceptedBy}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Customer Contact */}
             <Card>
               <CardHeader>
@@ -942,18 +1302,29 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
               <CardContent>
                 {isEditingContact ? (
                   <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={customerContactName}
-                      onChange={(e) => setCustomerContactName(e.target.value)}
-                      placeholder="Name eingeben..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      autoFocus
-                    />
+                    {customer?.teamMembers && customer.teamMembers.length > 0 ? (
+                      <select
+                        value={customerContactName}
+                        onChange={(e) => setCustomerContactName(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        autoFocus
+                      >
+                        <option value="">Bitte auswählen...</option>
+                        {customer.teamMembers.map((member: { id: string; name: string; role: string }) => (
+                          <option key={member.id} value={member.name}>
+                            {member.name} ({member.role})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Noch keine Teammitglieder angelegt. Bitte kontaktieren Sie Ihren Berater.
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        disabled={isSavingContact || !customerContactName.trim()}
+                        disabled={isSavingContact || !customerContactName.trim() || !customer?.teamMembers?.length}
                         onClick={async () => {
                           setIsSavingContact(true)
                           try {
@@ -1032,7 +1403,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
         </div>
       </div>
 
-      {/* Reject Modal */}
+      {/* Reject Modal (Akzeptanzkriterien) */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
@@ -1071,6 +1442,54 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                   <>
                     <X className="mr-2 h-4 w-4" />
                     Verwerfen
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Abnahme Reject Modal */}
+      {showAbnahmeRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Abnahme ablehnen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Bitte geben Sie einen Kommentar ein, warum Sie die Abnahme ablehnen.
+              Unser Team wird sich mit Ihnen in Verbindung setzen.
+            </p>
+            <textarea
+              value={abnahmeRejectComment}
+              onChange={(e) => setAbnahmeRejectComment(e.target.value)}
+              placeholder="Beschreiben Sie, was nicht wie gewünscht funktioniert..."
+              className="mt-4 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              rows={4}
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAbnahmeRejectModal(false)
+                  setAbnahmeRejectComment('')
+                }}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                onClick={handleRejectAbnahme}
+                disabled={!abnahmeRejectComment.trim() || isRejectingAbnahme}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isRejectingAbnahme ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Wird verarbeitet...
+                  </>
+                ) : (
+                  <>
+                    <X className="mr-2 h-4 w-4" />
+                    Ablehnen
                   </>
                 )}
               </Button>

@@ -74,6 +74,20 @@ const moduleStatusConfig: Record<string, { label: string; color: string }> = {
   abgeschlossen: { label: 'Live', color: 'bg-green-100 text-green-700' },
 }
 
+// Helper to get display status based on status + liveStatus
+const getModuleDisplayStatus = (module: any): { label: string; color: string } => {
+  if (module.status === 'abgeschlossen') {
+    if (module.liveStatus === 'pausiert') {
+      return { label: 'Pausiert', color: 'bg-yellow-100 text-yellow-700' }
+    }
+    if (module.liveStatus === 'deaktiviert') {
+      return { label: 'Deaktiviert', color: 'bg-red-100 text-red-700' }
+    }
+    return { label: 'Live', color: 'bg-green-100 text-green-700' }
+  }
+  return moduleStatusConfig[module.status] || { label: module.status, color: 'bg-gray-100 text-gray-700' }
+}
+
 const categoryConfig: Record<string, { label: string; color: string }> = {
   entwicklung: { label: 'Entwicklung', color: 'bg-blue-100 text-blue-700' },
   wartung: { label: 'Wartung', color: 'bg-green-100 text-green-700' },
@@ -230,8 +244,13 @@ export default function CustomerDetailPage() {
     )
   }
 
-  // Count unread incoming messages for badge
+  // Count unread incoming messages for badge (only customer-initiated, no status updates)
   const unreadMessagesCount = messages.filter(
+    (m) => m.direction === 'incoming' && !m.read && m.messageType !== 'status_update'
+  ).length
+
+  // Count ALL unread incoming messages (including status updates) for "Mark all as read" button
+  const allUnreadIncomingCount = messages.filter(
     (m) => m.direction === 'incoming' && !m.read
   ).length
 
@@ -381,6 +400,49 @@ export default function CustomerDetailPage() {
       console.error('Error deleting message:', error)
     } finally {
       setIsDeletingMessage(null)
+    }
+  }
+
+  // Select message and mark as read
+  const handleSelectMessage = async (msg: AdminMessage) => {
+    setSelectedMessageDetail(msg)
+
+    // Only mark incoming unread messages as read
+    if (msg.direction === 'incoming' && !msg.read) {
+      try {
+        await fetch(`/api/admin/messages/${msg.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ read: true }),
+        })
+        mutate() // Refresh customer data to update the message list
+      } catch (error) {
+        console.error('Error marking message as read:', error)
+      }
+    }
+  }
+
+  // Mark all incoming messages as read
+  const handleMarkAllMessagesAsRead = async () => {
+    const unreadIncomingMessages = messages.filter(
+      (m) => m.direction === 'incoming' && !m.read
+    )
+
+    if (unreadIncomingMessages.length === 0) return
+
+    try {
+      await Promise.all(
+        unreadIncomingMessages.map((msg) =>
+          fetch(`/api/admin/messages/${msg.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ read: true }),
+          })
+        )
+      )
+      mutate() // Refresh customer data
+    } catch (error) {
+      console.error('Error marking all messages as read:', error)
     }
   }
 
@@ -631,7 +693,7 @@ export default function CustomerDetailPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900">{customer.companyName}</h2>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${tierConfig[customer.membership.tier].color}`}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${tierConfig[customer.membership.tier as keyof typeof tierConfig]?.color || 'bg-gray-100 text-gray-700'}`}
                     >
                       Paket {customer.membership.tier}
                     </span>
@@ -707,7 +769,7 @@ export default function CustomerDetailPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Paket</span>
-                    <span className="font-medium">{tierConfig[customer.membership.tier].label}</span>
+                    <span className="font-medium">{tierConfig[customer.membership.tier as keyof typeof tierConfig]?.label || customer.membership.tier}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Monatliche Punkte</span>
@@ -941,7 +1003,7 @@ export default function CustomerDetailPage() {
                   </button>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {transactions.slice(0, 5).map((t) => (
+                  {transactions.slice(0, 5).map((t: { id: string; description: string; date: string; points: number; category: string }) => (
                     <div key={t.id} className="flex items-center justify-between px-5 py-3">
                       <div>
                         <p className="font-medium text-gray-900">{t.description}</p>
@@ -1041,7 +1103,7 @@ export default function CustomerDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {transactions.map((t) => {
+                    {transactions.map((t: { id: string; description: string; date: string; points: number; category: string; moduleId?: string }) => {
                       const relatedModule = customerModules.find((m) => m.id === t.moduleId)
                       return (
                         <tr key={t.id} className="hover:bg-gray-50">
@@ -1217,9 +1279,14 @@ export default function CustomerDetailPage() {
 
                           <div className="flex items-start justify-between mb-3 pr-8">
                             <h4 className="font-semibold text-gray-900">{module.name}</h4>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${moduleStatusConfig[module.status]?.color || 'bg-gray-100 text-gray-700'}`}>
-                              {moduleStatusConfig[module.status]?.label || module.status}
-                            </span>
+                            {(() => {
+                              const displayStatus = getModuleDisplayStatus(module)
+                              return (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${displayStatus.color}`}>
+                                  {displayStatus.label}
+                                </span>
+                              )
+                            })()}
                           </div>
                           <p className="text-sm text-gray-500 mb-4 line-clamp-2">{module.description}</p>
 
@@ -1277,15 +1344,22 @@ export default function CustomerDetailPage() {
                   teamMembers={customer?.teamMembers || []}
                   showMaintenancePoints={true}
                   onStatusChange={async (itemId, newStatus) => {
-                    // If moving to "abgeschlossen", automatically set progress to 100%
-                    const updateData: { status: ModuleStatus; progress?: number } = { status: newStatus }
+                    const moduleToUpdate = customerModules.find(m => m.id === itemId)
+
+                    // If moving to "abgeschlossen", automatically set progress to 100% and request Abnahme
+                    const updateData: { status: ModuleStatus; progress?: number; abnahmeStatus?: string } = { status: newStatus }
                     if (newStatus === 'abgeschlossen') {
                       updateData.progress = 100
+                      updateData.abnahmeStatus = 'ausstehend'
                     }
 
                     // Update local state immediately
                     setCustomerModules(prev =>
-                      prev.map(m => m.id === itemId ? { ...m, status: newStatus, ...(newStatus === 'abgeschlossen' ? { progress: 100 } : {}) } : m)
+                      prev.map(m => m.id === itemId ? {
+                        ...m,
+                        status: newStatus,
+                        ...(newStatus === 'abgeschlossen' ? { progress: 100, abnahmeStatus: 'ausstehend' as const } : {})
+                      } : m)
                     )
                     // Persist to API
                     try {
@@ -1294,6 +1368,23 @@ export default function CustomerDetailPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(updateData),
                       })
+
+                      // If moving to "abgeschlossen", send Abnahme notification to customer
+                      if (newStatus === 'abgeschlossen' && customer?.id && moduleToUpdate) {
+                        await fetch(`/api/customers/${customer.id}/notifications`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            type: 'acceptance_required',
+                            title: 'Modul-Abnahme erforderlich',
+                            message: `Das Modul "${moduleToUpdate.name}" ist fertiggestellt und bereit zur Abnahme. Bitte bestätigen Sie die Abnahme, damit die Wartung aktiviert werden kann.`,
+                            actionRequired: true,
+                            relatedProjectId: itemId,
+                            relatedUrl: `/roadmap/${itemId}`,
+                          }),
+                        })
+                      }
+
                       mutate()
                     } catch (error) {
                       console.error('Error updating module status:', error)
@@ -1767,6 +1858,19 @@ export default function CustomerDetailPage() {
                       </button>
                     </div>
 
+                    {/* Mark all as read button */}
+                    {allUnreadIncomingCount > 0 && (
+                      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                        <button
+                          onClick={handleMarkAllMessagesAsRead}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Alle als gelesen markieren ({allUnreadIncomingCount})
+                        </button>
+                      </div>
+                    )}
+
                     {/* Message List */}
                     <div className="flex-1 overflow-auto">
                       {(() => {
@@ -1797,7 +1901,7 @@ export default function CustomerDetailPage() {
                               return (
                                 <div
                                   key={msg.id}
-                                  onClick={() => setSelectedMessageDetail(msg)}
+                                  onClick={() => handleSelectMessage(msg)}
                                   className={`px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors ${
                                     selectedMessageDetail?.id === msg.id ? 'bg-primary-50 border-l-2 border-primary-600' : ''
                                   } ${isIncoming && !msg.read ? 'bg-blue-50/50' : ''}`}
@@ -2692,6 +2796,59 @@ export default function CustomerDetailPage() {
                   )}
                 </div>
               </div>
+
+              {/* Live-Status (nur bei abgeschlossenen Modulen relevant) */}
+              {selectedModule.status === 'abgeschlossen' && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-900">Live-Status</p>
+                      <p className="text-xs text-purple-600">Steuert wie das Modul dem Kunden angezeigt wird</p>
+                    </div>
+                    <select
+                      value={selectedModule.liveStatus || 'aktiv'}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value
+                        setSelectedModule({ ...selectedModule, liveStatus: newStatus as any })
+                        setCustomerModules(prev =>
+                          prev.map(m => m.id === selectedModule.id ? { ...m, liveStatus: newStatus as any } : m)
+                        )
+                        try {
+                          await fetch(`/api/modules/${selectedModule.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ liveStatus: newStatus }),
+                          })
+                          mutate()
+                        } catch (error) {
+                          console.error('Error updating live status:', error)
+                        }
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 ${
+                        selectedModule.liveStatus === 'pausiert'
+                          ? 'border-yellow-300 bg-yellow-100 text-yellow-800 focus:ring-yellow-500'
+                          : selectedModule.liveStatus === 'deaktiviert'
+                            ? 'border-red-300 bg-red-100 text-red-800 focus:ring-red-500'
+                            : 'border-green-300 bg-green-100 text-green-800 focus:ring-green-500'
+                      }`}
+                    >
+                      <option value="aktiv">🟢 Live / Aktiv</option>
+                      <option value="pausiert">🟡 Pausiert</option>
+                      <option value="deaktiviert">🔴 Deaktiviert</option>
+                    </select>
+                  </div>
+                  {selectedModule.liveStatus === 'pausiert' && (
+                    <p className="mt-2 text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
+                      Das Modul wird dem Kunden als "Pausiert" angezeigt. Die Wartungskosten laufen weiter.
+                    </p>
+                  )}
+                  {selectedModule.liveStatus === 'deaktiviert' && (
+                    <p className="mt-2 text-xs text-red-700 bg-red-100 p-2 rounded">
+                      Das Modul wird dem Kunden als "Deaktiviert" angezeigt.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Editable Module Settings */}
               <div className="border border-gray-200 rounded-lg p-4 space-y-4">

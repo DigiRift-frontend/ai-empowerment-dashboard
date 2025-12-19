@@ -63,7 +63,7 @@ export default function TeamPage() {
   }, {})
 
   // Group by department
-  const departments = [...new Set(teamMembers.map((m) => m.department))]
+  const departments = Array.from(new Set(teamMembers.map((m) => m.department)))
 
   const resetForm = () => {
     setFormData({ name: '', role: '', department: '', email: '', phone: '', moduleId: '' })

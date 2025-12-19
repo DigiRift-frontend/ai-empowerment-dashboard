@@ -26,7 +26,28 @@ import {
   FileText,
   BookOpen,
   Download,
+  Settings,
 } from 'lucide-react'
+
+// Helper to get display status based on status + liveStatus
+const getModuleDisplayStatus = (mod: any) => {
+  if (mod.status === 'abgeschlossen') {
+    if (mod.liveStatus === 'pausiert') {
+      return { label: 'Pausiert', className: 'bg-yellow-100 text-yellow-700' }
+    }
+    if (mod.liveStatus === 'deaktiviert') {
+      return { label: 'Deaktiviert', className: 'bg-red-100 text-red-700' }
+    }
+    return { label: 'Live', className: 'bg-green-100 text-green-700' }
+  }
+  if (mod.status === 'im_test') {
+    return { label: 'Im Test', className: 'bg-blue-100 text-blue-700' }
+  }
+  if (mod.status === 'in_arbeit') {
+    return { label: 'In Arbeit', className: 'bg-blue-100 text-blue-700' }
+  }
+  return { label: 'Geplant', className: 'bg-gray-100 text-gray-700' }
+}
 
 export default function DashboardPage() {
   const { customerId } = useAuth()
@@ -52,6 +73,12 @@ export default function DashboardPage() {
 
   // Aktive Module
   const liveModules = modules.filter((m: any) => m.status === 'abgeschlossen')
+
+  // Gesamte monatliche Wartungskosten aller akzeptierten Module
+  const totalMonthlyMaintenancePoints = liveModules.reduce(
+    (sum: number, m: any) => sum + (m.monthlyMaintenancePoints || 0),
+    0
+  )
 
   // Schulungen
   const upcomingWorkshop = workshops.find((w: any) => w.status === 'geplant')
@@ -231,19 +258,22 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-sm py-4">Keine aktiven Module</p>
                 ) : (
                   <div className="space-y-2">
-                    {liveModules.map((mod: any) => (
-                      <Link key={mod.id} href="/modules" className="block">
-                        <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
-                          <div>
-                            <p className="font-medium text-gray-900">{mod.name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {mod.monthlyMaintenancePoints} Punkte/Monat Wartung
-                            </p>
+                    {liveModules.map((mod: any) => {
+                      const displayStatus = getModuleDisplayStatus(mod)
+                      return (
+                        <Link key={mod.id} href="/modules" className="block">
+                          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50 transition-colors">
+                            <div>
+                              <p className="font-medium text-gray-900">{mod.name}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {mod.monthlyMaintenancePoints} Punkte/Monat Wartung
+                              </p>
+                            </div>
+                            <Badge className={displayStatus.className}>{displayStatus.label}</Badge>
                           </div>
-                          <Badge className="bg-green-100 text-green-700">Live</Badge>
-                        </div>
-                      </Link>
-                    ))}
+                        </Link>
+                      )
+                    })}
                     {modules.filter((m: any) => m.status === 'in_arbeit' || m.status === 'im_test').length > 0 && (
                       <div className="text-xs text-gray-500 mt-2">
                         + {modules.filter((m: any) => m.status === 'in_arbeit' || m.status === 'im_test').length} Module in Arbeit
@@ -318,28 +348,28 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {modulesWithDocs.slice(0, 4).map((mod: any) => (
-                    <div
-                      key={mod.id}
-                      className="rounded-lg border border-gray-200 p-4"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="font-medium text-gray-900">{mod.name}</p>
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            {mod.status === 'abgeschlossen' ? 'Live' :
-                             mod.status === 'im_test' ? 'Im Test' :
-                             mod.status === 'in_arbeit' ? 'In Arbeit' : 'Geplant'}
-                          </Badge>
+                  {modulesWithDocs.slice(0, 4).map((mod: any) => {
+                    const displayStatus = getModuleDisplayStatus(mod)
+                    return (
+                      <div
+                        key={mod.id}
+                        className="rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-medium text-gray-900">{mod.name}</p>
+                            <Badge variant="outline" className="mt-1 text-xs">
+                              {displayStatus.label}
+                            </Badge>
+                          </div>
+                          <Link href={`/roadmap/${mod.id}`}>
+                            <Button variant="ghost" size="sm">
+                              Details
+                              <ChevronRight className="ml-1 h-4 w-4" />
+                            </Button>
+                          </Link>
                         </div>
-                        <Link href={`/roadmap/${mod.id}`}>
-                          <Button variant="ghost" size="sm">
-                            Details
-                            <ChevronRight className="ml-1 h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2">
                         {mod.videoUrl && (
                           <a
                             href={mod.videoUrl}
@@ -372,7 +402,8 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                   {modulesWithDocs.length > 4 && (
                     <p className="text-center text-sm text-gray-500">
                       + {modulesWithDocs.length - 4} weitere Module mit Anleitungen
@@ -448,6 +479,33 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+
+              {/* Monatliche Wartungskosten */}
+              {totalMonthlyMaintenancePoints > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Settings className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700">Monatliche Wartungskosten</span>
+                  </div>
+                  <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-gray-700">Gesamte Wartungskosten</span>
+                      <span className="font-semibold text-yellow-700">{totalMonthlyMaintenancePoints} Punkte/Monat</span>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t border-yellow-200">
+                      {liveModules.map((mod: any) => (
+                        <div key={mod.id} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{mod.name}</span>
+                          <span className="text-gray-900">{mod.monthlyMaintenancePoints || 0} Pkt.</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-yellow-600 mt-3">
+                      Wartungskosten werden automatisch monatlich abgebucht
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Vertragsdaten */}
               <div>

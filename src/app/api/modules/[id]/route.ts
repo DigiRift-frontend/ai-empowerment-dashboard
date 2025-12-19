@@ -95,6 +95,12 @@ export async function PATCH(
     if (body.acceptedBy !== undefined) updateData.acceptedBy = body.acceptedBy
     if (body.testCompletedAt !== undefined) updateData.testCompletedAt = body.testCompletedAt ? new Date(body.testCompletedAt) : null
     if (body.testCompletedBy !== undefined) updateData.testCompletedBy = body.testCompletedBy
+    // Abnahme (nach Fertigstellung - löst Wartungskosten aus)
+    if (body.abnahmeStatus !== undefined) updateData.abnahmeStatus = body.abnahmeStatus
+    if (body.abnahmeAt !== undefined) updateData.abnahmeAt = body.abnahmeAt ? new Date(body.abnahmeAt) : null
+    if (body.abnahmeBy !== undefined) updateData.abnahmeBy = body.abnahmeBy
+    // Live-Status (unabhängig vom Kanban-Status)
+    if (body.liveStatus !== undefined) updateData.liveStatus = body.liveStatus
     // Anleitungen & Dokumentation
     if (body.videoUrl !== undefined) updateData.videoUrl = body.videoUrl || null
     if (body.instructions !== undefined) updateData.instructions = body.instructions || null

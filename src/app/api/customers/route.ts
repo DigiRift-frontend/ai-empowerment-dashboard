@@ -50,6 +50,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Team member not found' }, { status: 400 })
     }
 
+    if (!teamMember.email) {
+      return NextResponse.json({ error: 'Team member has no email' }, { status: 400 })
+    }
+
     // Find or create CustomerAdvisor based on TeamMember
     let advisor = await prisma.customerAdvisor.findUnique({
       where: { email: teamMember.email },

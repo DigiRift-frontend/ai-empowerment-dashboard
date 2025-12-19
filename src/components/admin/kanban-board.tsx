@@ -19,8 +19,8 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Module, TeamMember, ModuleStatus } from '@/types'
-import { Calendar, Check, Clock, ListChecks, ExternalLink, Trash2, Copy, Pencil } from 'lucide-react'
+import { Module, TeamMember, ModuleStatus, LiveStatus } from '@/types'
+import { Calendar, Check, Clock, ListChecks, ExternalLink, Trash2, Copy, Pencil, Pause, Power } from 'lucide-react'
 
 interface KanbanBoardProps {
   items: Module[]
@@ -151,6 +151,26 @@ function KanbanCard({ item, teamMembers, onAssigneeChange, onItemClick, onDelete
             <ExternalLink className="h-3 w-3" />
             Software öffnen
           </a>
+        </div>
+      )}
+
+      {/* Live Status Indicator (for completed modules) */}
+      {item.status === 'abgeschlossen' && item.liveStatus && item.liveStatus !== 'aktiv' && (
+        <div className="mb-3">
+          <span
+            className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded ${
+              item.liveStatus === 'pausiert'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {item.liveStatus === 'pausiert' ? (
+              <Pause className="h-3 w-3" />
+            ) : (
+              <Power className="h-3 w-3" />
+            )}
+            {item.liveStatus === 'pausiert' ? 'Pausiert' : 'Deaktiviert'}
+          </span>
         </div>
       )}
 

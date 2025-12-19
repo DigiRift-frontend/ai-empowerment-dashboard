@@ -53,6 +53,18 @@ enum AcceptanceStatus {
   abgelehnt
 }
 
+enum AbnahmeStatus {
+  ausstehend
+  abgenommen
+  abgelehnt
+}
+
+enum LiveStatus {
+  aktiv      // Normal live/aktiv
+  pausiert   // Temporär pausiert
+  deaktiviert // Komplett abgeschaltet
+}
+
 enum SchulungCategory {
   grundlagen
   fortgeschritten
@@ -266,6 +278,14 @@ model Module {
   // Test-Phase
   testCompletedAt DateTime?
   testCompletedBy String?
+
+  // Abnahme (nach Fertigstellung - löst Wartungskosten aus)
+  abnahmeStatus AbnahmeStatus?
+  abnahmeAt     DateTime?
+  abnahmeBy     String?
+
+  // Live-Status (unabhängig vom Kanban-Status, für Admin-Kontrolle)
+  liveStatus LiveStatus @default(aktiv)
 
   // Roadmap
   showInRoadmap Boolean @default(true)

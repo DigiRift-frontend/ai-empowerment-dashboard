@@ -35,7 +35,7 @@ export function AdminSidebar() {
   return (
     <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-gray-900">
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between bg-gray-900 border-b border-gray-800 px-4">
+      <Link href="/admin" className="flex h-16 items-center justify-between bg-gray-900 border-b border-gray-800 px-4 hover:bg-gray-800 transition-colors">
         <div className="flex items-center gap-3">
           <div className="relative h-10 w-10 rounded-lg bg-white p-1">
             <Image
@@ -50,7 +50,7 @@ export function AdminSidebar() {
             <p className="text-xs text-gray-400">AI Empowerment</p>
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Main Navigation */}
       <nav className="flex-1 px-3 py-4">

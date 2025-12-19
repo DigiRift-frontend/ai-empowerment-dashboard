@@ -34,6 +34,20 @@ export default function ModulesPage() {
     abgeschlossen: { label: 'Live', variant: 'success' as const, icon: Zap, color: 'bg-green-500' },
   }
 
+  // Helper to get display status based on status + liveStatus
+  const getDisplayStatus = (mod: any) => {
+    if (mod.status === 'abgeschlossen') {
+      if (mod.liveStatus === 'pausiert') {
+        return { label: 'Pausiert', variant: 'warning' as const, color: 'bg-yellow-500' }
+      }
+      if (mod.liveStatus === 'deaktiviert') {
+        return { label: 'Deaktiviert', variant: 'danger' as const, color: 'bg-red-500' }
+      }
+      return { label: 'Live', variant: 'success' as const, color: 'bg-green-500' }
+    }
+    return statusConfig[mod.status as keyof typeof statusConfig]
+  }
+
   if (isLoading || !customer) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -152,6 +166,7 @@ export default function ModulesPage() {
             </Card>
           ) : (
             filteredModules.map((mod: any) => {
+              const displayStatus = getDisplayStatus(mod)
               const config = statusConfig[mod.status as keyof typeof statusConfig] || statusConfig.geplant
               const StatusIcon = config.icon
 
@@ -170,9 +185,9 @@ export default function ModulesPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-semibold text-gray-900">{mod.name}</h3>
-                            <Badge variant={config.variant}>
+                            <Badge variant={displayStatus.variant}>
                               <StatusIcon className="mr-1 h-3 w-3" />
-                              {config.label}
+                              {displayStatus.label}
                             </Badge>
                           </div>
                           <p className="mt-1 text-sm text-gray-600 line-clamp-2">{mod.description}</p>
