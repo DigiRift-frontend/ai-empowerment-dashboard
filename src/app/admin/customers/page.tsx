@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { useCustomers, createCustomer } from '@/hooks/use-customers'
 import { useTeam } from '@/hooks/use-team'
-import { Search, Plus, Filter, Eye, Edit, Package, Users, Loader2 } from 'lucide-react'
-import Link from 'next/link'
+import { Search, Plus, Filter, Package, Users, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const tierConfig = {
   'S': { color: 'bg-gray-100 text-gray-700', label: 'Small', points: 100, price: '2.900 €' },
@@ -14,6 +14,7 @@ const tierConfig = {
 }
 
 export default function CustomersPage() {
+  const router = useRouter()
   const { customers, isLoading, mutate } = useCustomers()
   const { team, isLoading: teamLoading } = useTeam()
   const [searchTerm, setSearchTerm] = useState('')
@@ -150,9 +151,6 @@ export default function CustomersPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Vertragsbeginn
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Aktionen
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -165,7 +163,11 @@ export default function CustomersPage() {
                 const tier = customer.membership?.tier || 'M'
 
                 return (
-                  <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={customer.id}
+                    onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-600">
@@ -227,23 +229,6 @@ export default function CustomersPage() {
                           ? new Date(customer.membership.contractStart).toLocaleDateString('de-DE')
                           : '-'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/admin/customers/${customer.id}`}
-                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                          title="Details anzeigen"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <button
-                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                          title="Bearbeiten"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 )
