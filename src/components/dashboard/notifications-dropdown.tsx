@@ -69,6 +69,16 @@ export function NotificationsDropdown({
   const statusUpdateCount = messages.filter((m) => m.messageType === 'status_update').length
   const normalMessageCount = messages.filter((m) => (m.messageType || 'normal') === 'normal').length
 
+  // Combined list for "All" tab - sorted by createdAt
+  type CombinedItem =
+    | { type: 'notification'; data: Notification }
+    | { type: 'message'; data: AdminMessage }
+
+  const combinedItems: CombinedItem[] = [
+    ...notifications.map((n) => ({ type: 'notification' as const, data: n })),
+    ...messages.map((m) => ({ type: 'message' as const, data: m })),
+  ].sort((a, b) => new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime())
+
   const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'test_required':
@@ -269,14 +279,104 @@ export function NotificationsDropdown({
 
             {/* Content List */}
             <div className="max-h-96 overflow-y-auto">
-              {/* Notifications */}
-              {(activeTab === 'all' || activeTab === 'notifications') && notifications.length > 0 && (
+              {/* Combined list for "All" tab - sorted by time */}
+              {activeTab === 'all' && combinedItems.length > 0 && (
                 <>
-                  {activeTab === 'all' && notifications.length > 0 && messages.length > 0 && (
-                    <div className="bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
-                      Updates
-                    </div>
-                  )}
+                  {combinedItems.map((item) => {
+                    if (item.type === 'notification') {
+                      const notification = item.data
+                      return (
+                        <Link
+                          key={`notification-${notification.id}`}
+                          href={notification.relatedUrl || '#'}
+                          onClick={() => {
+                            onMarkAsRead?.(notification.id)
+                            setIsOpen(false)
+                          }}
+                          className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
+                            !notification.read ? 'bg-blue-50/50' : ''
+                          }`}
+                        >
+                          <div className={`shrink-0 rounded-lg p-2 ${getTypeColor(notification.type)}`}>
+                            {getIcon(notification.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                                {notification.title}
+                              </p>
+                              {getActionBadge(notification.type, notification.actionRequired)}
+                            </div>
+                            <p className="mt-0.5 text-sm text-gray-600 line-clamp-2">
+                              {notification.message}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {formatDate(notification.createdAt)}
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+                        </Link>
+                      )
+                    } else {
+                      const message = item.data
+                      const isStatusUpdate = message.messageType === 'status_update'
+                      const isUnread = message.direction === 'outgoing' ? !message.customerRead : !message.read
+                      return (
+                        <Link
+                          key={`message-${message.id}`}
+                          href="/messages"
+                          onClick={() => {
+                            onMarkMessageAsRead?.(message.id)
+                            setIsOpen(false)
+                          }}
+                          className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
+                            isUnread ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''
+                          }`}
+                        >
+                          <div className={`shrink-0 rounded-lg p-2 ${
+                            isStatusUpdate
+                              ? (isUnread ? 'bg-orange-100' : 'bg-orange-50')
+                              : (isUnread ? 'bg-blue-100' : 'bg-gray-100')
+                          }`}>
+                            {isStatusUpdate ? (
+                              <RefreshCw className={`h-4 w-4 ${isUnread ? 'text-orange-600' : 'text-orange-400'}`} />
+                            ) : (
+                              <Mail className={`h-4 w-4 ${isUnread ? 'text-blue-600' : 'text-gray-500'}`} />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                                {message.subject}
+                              </p>
+                              {isUnread && (
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                  isStatusUpdate
+                                    ? 'bg-orange-100 text-orange-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {isStatusUpdate ? 'Status' : 'Neu'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              Von: {message.from}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {formatDate(message.createdAt)}
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+                        </Link>
+                      )
+                    }
+                  })}
+                </>
+              )}
+
+              {/* Notifications only - for "Updates" tab */}
+              {activeTab === 'notifications' && notifications.length > 0 && (
+                <>
                   {notifications.map((notification) => (
                     <Link
                       key={notification.id}
@@ -312,17 +412,11 @@ export function NotificationsDropdown({
                 </>
               )}
 
-              {/* Messages */}
-              {(activeTab === 'all' || activeTab === 'messages') && (activeTab === 'all' ? messages : filteredMessages).length > 0 && (
+              {/* Messages only - for "Nachrichten" tab */}
+              {activeTab === 'messages' && filteredMessages.length > 0 && (
                 <>
-                  {activeTab === 'all' && notifications.length > 0 && messages.length > 0 && (
-                    <div className="bg-gray-50 px-4 py-1.5 text-xs font-medium text-gray-500">
-                      Nachrichten
-                    </div>
-                  )}
-                  {(activeTab === 'all' ? messages : filteredMessages).map((message) => {
+                  {filteredMessages.map((message) => {
                     const isStatusUpdate = message.messageType === 'status_update'
-                    // For outgoing messages (from admin), check customerRead; otherwise check read
                     const isUnread = message.direction === 'outgoing' ? !message.customerRead : !message.read
                     return (
                       <Link
@@ -377,7 +471,7 @@ export function NotificationsDropdown({
               )}
 
               {/* Empty state */}
-              {((activeTab === 'all' && notifications.length === 0 && messages.length === 0) ||
+              {((activeTab === 'all' && combinedItems.length === 0) ||
                 (activeTab === 'notifications' && notifications.length === 0) ||
                 (activeTab === 'messages' && filteredMessages.length === 0)) && (
                 <div className="flex flex-col items-center justify-center py-8 text-gray-500">
