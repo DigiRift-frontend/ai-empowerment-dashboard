@@ -23,6 +23,8 @@ interface AdminMessage {
   subject: string
   content: string
   read: boolean
+  customerRead?: boolean
+  direction?: 'incoming' | 'outgoing'
   from: string
   createdAt: string
   messageType?: 'normal' | 'status_update'
@@ -48,7 +50,13 @@ export function NotificationsDropdown({
   const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
 
   const unreadNotifications = notifications.filter((n) => !n.read).length
-  const unreadMessages = messages.filter((m) => !m.read).length
+  // For messages from admin (outgoing), check customerRead; for messages the customer sent, they're not "unread" for them
+  const unreadMessages = messages.filter((m) => {
+    if (m.direction === 'outgoing') {
+      return !m.customerRead
+    }
+    return false
+  }).length
   const unreadCount = unreadNotifications + unreadMessages
   const actionRequiredCount = notifications.filter((n) => n.actionRequired).length
 
@@ -314,6 +322,8 @@ export function NotificationsDropdown({
                   )}
                   {(activeTab === 'all' ? messages : filteredMessages).map((message) => {
                     const isStatusUpdate = message.messageType === 'status_update'
+                    // For outgoing messages (from admin), check customerRead; otherwise check read
+                    const isUnread = message.direction === 'outgoing' ? !message.customerRead : !message.read
                     return (
                       <Link
                         key={message.id}
@@ -323,26 +333,26 @@ export function NotificationsDropdown({
                           setIsOpen(false)
                         }}
                         className={`flex gap-3 border-b border-gray-50 p-4 transition-colors hover:bg-gray-50 ${
-                          !message.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''
+                          isUnread ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''
                         }`}
                       >
                         <div className={`shrink-0 rounded-lg p-2 ${
                           isStatusUpdate
-                            ? (message.read ? 'bg-orange-50' : 'bg-orange-100')
-                            : (message.read ? 'bg-gray-100' : 'bg-blue-100')
+                            ? (isUnread ? 'bg-orange-100' : 'bg-orange-50')
+                            : (isUnread ? 'bg-blue-100' : 'bg-gray-100')
                         }`}>
                           {isStatusUpdate ? (
-                            <RefreshCw className={`h-4 w-4 ${message.read ? 'text-orange-400' : 'text-orange-600'}`} />
+                            <RefreshCw className={`h-4 w-4 ${isUnread ? 'text-orange-600' : 'text-orange-400'}`} />
                           ) : (
-                            <Mail className={`h-4 w-4 ${message.read ? 'text-gray-500' : 'text-blue-600'}`} />
+                            <Mail className={`h-4 w-4 ${isUnread ? 'text-blue-600' : 'text-gray-500'}`} />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <p className={`text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                            <p className={`text-sm ${isUnread ? 'font-semibold' : 'font-medium'} text-gray-900`}>
                               {message.subject}
                             </p>
-                            {!message.read && (
+                            {isUnread && (
                               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                 isStatusUpdate
                                   ? 'bg-orange-100 text-orange-700'

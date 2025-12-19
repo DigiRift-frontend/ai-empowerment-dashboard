@@ -21,10 +21,15 @@ export function Header({ title, subtitle, badge }: HeaderProps) {
 
   const handleMarkMessageAsRead = async (messageId: string) => {
     try {
+      // Find the message to determine the direction
+      const message = messages.find((m: any) => m.id === messageId)
+      // For messages from admin (outgoing), use customerRead; otherwise use read
+      const updateField = message?.direction === 'outgoing' ? 'customerRead' : 'read'
+
       await fetch(`/api/customers/${customerId}/messages/${messageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: true }),
+        body: JSON.stringify({ [updateField]: true }),
       })
       mutate()
     } catch (error) {
@@ -34,14 +39,20 @@ export function Header({ title, subtitle, badge }: HeaderProps) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      // Mark all messages as read
-      const unreadMessages = messages.filter((m: any) => !m.read)
+      // Mark all unread messages as read based on direction
+      // For outgoing (from admin), check customerRead; for incoming, check read
+      const unreadMessages = messages.filter((m: any) => {
+        if (m.direction === 'outgoing') {
+          return !m.customerRead
+        }
+        return false // Customer sent these, so they're not "unread" from customer perspective
+      })
       await Promise.all(
         unreadMessages.map((m: any) =>
           fetch(`/api/customers/${customerId}/messages/${m.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ read: true }),
+            body: JSON.stringify({ customerRead: true }),
           })
         )
       )
@@ -68,7 +79,7 @@ export function Header({ title, subtitle, badge }: HeaderProps) {
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+          <h1 className="text-xl font-bold" style={{ color: '#1D354F' }}>{title}</h1>
           {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
         </div>
         {badge && (

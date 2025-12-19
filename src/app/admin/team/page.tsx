@@ -215,7 +215,7 @@ export default function TeamPage() {
         {/* Info Box */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800">
-            <strong>Hinweis:</strong> Diese Teammitglieder können als "Interner Verantwortlicher" für Module ausgewählt werden.
+            <strong>Hinweis:</strong> Diese Teammitglieder können als &quot;Interner Verantwortlicher&quot; für Module ausgewählt werden.
           </p>
         </div>
 

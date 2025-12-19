@@ -28,10 +28,12 @@ interface AdminMessage {
   id: string
   subject: string
   content: string
-  read: boolean
+  read: boolean           // Admin read status (for incoming messages from customer)
+  customerRead: boolean   // Customer read status (for outgoing messages from admin)
   from: string
   createdAt: string
   messageType?: 'normal' | 'status_update'
+  direction: 'incoming' | 'outgoing'  // incoming = customer -> admin, outgoing = admin -> customer
 }
 
 export default function MessagesPage() {
@@ -46,7 +48,17 @@ export default function MessagesPage() {
   const [selectedMessage, setSelectedMessage] = useState<AdminMessage | null>(null)
   const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
 
-  const unreadMessages = messages.filter((m) => !m.read).length
+  // For customer view: check customerRead for outgoing messages (from admin to customer)
+  const isMessageUnread = (message: AdminMessage) => {
+    // Outgoing messages (admin -> customer): customer has not read yet
+    if (message.direction === 'outgoing') {
+      return !message.customerRead
+    }
+    // Incoming messages (customer -> admin): already read by customer (they sent it)
+    return false
+  }
+
+  const unreadMessages = messages.filter(isMessageUnread).length
   const pendingActions = notifications.filter((n: any) => n.actionRequired && !n.read).length
 
   // Filter messages by type
@@ -65,15 +77,19 @@ export default function MessagesPage() {
     }
   }, [messages.length])
 
-  // Mark message as read (called automatically when message is selected)
-  const markAsRead = async (messageId: string) => {
+  // Mark message as read by customer (called automatically when message is selected)
+  const markAsRead = async (message: AdminMessage) => {
     try {
-      await fetch(`/api/customers/${customerId}/messages/${messageId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: true }),
-      })
-      mutate()
+      // For outgoing messages (admin -> customer): set customerRead
+      // For incoming messages (customer -> admin): nothing to update (customer already knows)
+      if (message.direction === 'outgoing') {
+        await fetch(`/api/customers/${customerId}/messages/${message.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerRead: true }),
+        })
+        mutate()
+      }
     } catch (error) {
       console.error('Error marking message as read:', error)
     }
@@ -82,8 +98,8 @@ export default function MessagesPage() {
   // Handle message selection - auto mark as read
   const handleSelectMessage = (message: AdminMessage) => {
     setSelectedMessage(message)
-    if (!message.read) {
-      markAsRead(message.id)
+    if (isMessageUnread(message)) {
+      markAsRead(message)
     }
   }
 
@@ -229,34 +245,38 @@ export default function MessagesPage() {
                   <div className="divide-y divide-gray-100">
                     {filteredMessages.map((message) => {
                       const isStatusUpdate = message.messageType === 'status_update'
+                      const unread = isMessageUnread(message)
+                      // In "All" tab: uniform styling, in filtered tabs: show type-specific colors
+                      const showTypeColors = messageFilter !== 'all'
+
                       return (
                         <button
                           key={message.id}
                           onClick={() => handleSelectMessage(message)}
                           className={`flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-gray-50 ${
                             selectedMessage?.id === message.id ? 'bg-primary-50' : ''
-                          } ${!message.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''}`}
+                          } ${unread ? 'bg-blue-50/50' : ''}`}
                         >
                           <div className={`shrink-0 rounded-lg p-2 ${
-                            isStatusUpdate
-                              ? (message.read ? 'bg-orange-50' : 'bg-orange-100')
-                              : (message.read ? 'bg-gray-100' : 'bg-blue-100')
+                            showTypeColors && isStatusUpdate
+                              ? (unread ? 'bg-orange-100' : 'bg-orange-50')
+                              : (unread ? 'bg-blue-100' : 'bg-gray-100')
                           }`}>
-                            {isStatusUpdate ? (
-                              <RefreshCw className={`h-4 w-4 ${message.read ? 'text-orange-400' : 'text-orange-600'}`} />
-                            ) : message.read ? (
-                              <MailOpen className="h-4 w-4 text-gray-500" />
-                            ) : (
+                            {showTypeColors && isStatusUpdate ? (
+                              <RefreshCw className={`h-4 w-4 ${unread ? 'text-orange-600' : 'text-orange-400'}`} />
+                            ) : unread ? (
                               <Mail className="h-4 w-4 text-blue-600" />
+                            ) : (
+                              <MailOpen className="h-4 w-4 text-gray-500" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className={`truncate text-sm ${!message.read ? 'font-semibold' : 'font-medium'} text-gray-900`}>
+                              <p className={`truncate text-sm ${unread ? 'font-semibold' : 'font-medium'} text-gray-900`}>
                                 {message.subject}
                               </p>
-                              {!message.read && (
-                                <span className={`h-2 w-2 shrink-0 rounded-full ${isStatusUpdate ? 'bg-orange-500' : 'bg-blue-500'}`} />
+                              {unread && (
+                                <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
                               )}
                             </div>
                             <p className="mt-0.5 truncate text-xs text-gray-500">
@@ -332,7 +352,7 @@ export default function MessagesPage() {
                         <span>{formatDate(selectedMessage.createdAt)}</span>
                       </div>
                     </div>
-                    {!selectedMessage.read && (
+                    {isMessageUnread(selectedMessage) && (
                       <Badge variant="default">Neu</Badge>
                     )}
                   </div>

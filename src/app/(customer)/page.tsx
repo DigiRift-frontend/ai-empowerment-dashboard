@@ -397,7 +397,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Paket {membership.tier}</h3>
-                  <p className="text-sm text-gray-500">AI Empowerment Programm</p>
+                  <p className="text-sm text-primary-600">AI Empowerment Programm</p>
                 </div>
               </div>
               <button

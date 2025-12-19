@@ -122,8 +122,8 @@ export function TeamTab({ customerId, teamMembers, modules = [], onUpdate }: Tea
 
   const getModuleName = (moduleId: string | null | undefined) => {
     if (!moduleId) return null
-    const module = modules.find((m) => m.id === moduleId)
-    return module?.name || null
+    const foundModule = modules.find((m) => m.id === moduleId)
+    return foundModule?.name || null
   }
 
   // Group by role

@@ -46,6 +46,8 @@ import {
   Layers,
   Check,
   RefreshCw,
+  Send,
+  X,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -123,7 +125,9 @@ export default function CustomerDetailPage() {
   const [newMessageSubject, setNewMessageSubject] = useState('')
   const [newMessageContent, setNewMessageContent] = useState('')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [messageFilter, setMessageFilter] = useState<'all' | 'normal' | 'status_update'>('all')
+  const [messageFilter, setMessageFilter] = useState<'all' | 'incoming' | 'outgoing'>('all')
+  const [selectedMessageDetail, setSelectedMessageDetail] = useState<AdminMessage | null>(null)
+  const [showMessageComposeModal, setShowMessageComposeModal] = useState(false)
 
   // Book Points State
   const [bookPointsData, setBookPointsData] = useState({
@@ -171,7 +175,9 @@ export default function CustomerDetailPage() {
     subject: msg.subject,
     content: msg.content,
     read: msg.read,
-    actionRequired: false, // AdminMessage doesn't have this field
+    customerRead: msg.customerRead || false,
+    direction: msg.direction || 'outgoing',
+    actionRequired: false,
     sentAt: msg.createdAt,
     sentBy: msg.from,
     messageType: msg.messageType || 'normal',
@@ -236,14 +242,11 @@ export default function CustomerDetailPage() {
 
   // Send message handler
   const handleSendMessage = async () => {
-    console.log('handleSendMessage called', { newMessageSubject, newMessageContent })
     if (!newMessageSubject.trim() || !newMessageContent.trim()) {
-      console.log('Validation failed - empty fields')
       return
     }
 
     setIsSendingMessage(true)
-    console.log('Sending message...')
     try {
       await fetch(`/api/customers/${customerId}/messages`, {
         method: 'POST',
@@ -252,6 +255,7 @@ export default function CustomerDetailPage() {
           subject: newMessageSubject,
           content: newMessageContent,
           from: 'Admin',
+          direction: 'outgoing',
         }),
       })
       setNewMessageSubject('')
@@ -1711,200 +1715,318 @@ export default function CustomerDetailPage() {
 
           {/* Messages Tab */}
           {activeTab === 'messages' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Nachrichten</h3>
-              </div>
+            <div className="relative h-[calc(100vh-280px)] min-h-[400px]">
+              {/* Nachrichten Split-View */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden h-full">
+                <div className="flex h-full">
+                  {/* Message List (Left Side) */}
+                  <div className="w-80 border-r border-gray-200 flex flex-col">
+                    {/* Filter Tabs */}
+                    <div className="flex border-b border-gray-200 flex-shrink-0">
+                      <button
+                        onClick={() => setMessageFilter('all')}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium transition-colors ${
+                          messageFilter === 'all'
+                            ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Alle ({messages.length})
+                      </button>
+                      <button
+                        onClick={() => setMessageFilter('incoming')}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium transition-colors ${
+                          messageFilter === 'incoming'
+                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Mail className="h-3 w-3" />
+                        Eingehend
+                      </button>
+                      <button
+                        onClick={() => setMessageFilter('outgoing')}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium transition-colors ${
+                          messageFilter === 'outgoing'
+                            ? 'text-green-600 border-b-2 border-green-600 bg-green-50/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        Gesendet
+                      </button>
+                    </div>
 
-              {/* Neue Nachricht */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h4 className="font-medium text-gray-900 mb-4">Neue Nachricht senden</h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
-                    <input
-                      type="text"
-                      value={newMessageSubject}
-                      onChange={(e) => {
-                        console.log('Subject changed:', e.target.value)
-                        setNewMessageSubject(e.target.value)
-                      }}
-                      placeholder="Betreff der Nachricht"
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nachricht</label>
-                    <textarea
-                      rows={4}
-                      value={newMessageContent}
-                      onChange={(e) => setNewMessageContent(e.target.value)}
-                      placeholder="Ihre Nachricht an den Kunden..."
-                      className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <button
-                      onClick={() => {
-                        console.log('Button clicked!')
-                        handleSendMessage()
-                      }}
-                      disabled={isSendingMessage || !newMessageSubject.trim() || !newMessageContent.trim()}
-                      className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSendingMessage ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Senden...
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquare className="h-4 w-4" />
-                          Senden
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
+                    {/* Message List */}
+                    <div className="flex-1 overflow-auto">
+                      {(() => {
+                        const filteredMessages = messages.filter((m) => {
+                          if (messageFilter === 'all') return true
+                          return m.direction === messageFilter
+                        })
 
-              {/* Nachrichtenhistorie */}
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-gray-900">Nachrichtenhistorie ({messages.length})</h4>
-                    {/* Message Type Filter */}
-                    {messages.length > 0 && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setMessageFilter('all')}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                            messageFilter === 'all'
-                              ? 'bg-primary-100 text-primary-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          Alle ({messages.length})
-                        </button>
-                        <button
-                          onClick={() => setMessageFilter('status_update')}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
-                            messageFilter === 'status_update'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Status ({messages.filter(m => m.messageType === 'status_update').length})
-                        </button>
-                        <button
-                          onClick={() => setMessageFilter('normal')}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${
-                            messageFilter === 'normal'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Mail className="h-3 w-3" />
-                          Normal ({messages.filter(m => (m.messageType || 'normal') === 'normal').length})
-                        </button>
+                        if (filteredMessages.length === 0) {
+                          return (
+                            <div className="px-4 py-8 text-center">
+                              <MessageSquare className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                              <p className="text-sm text-gray-500">
+                                {messageFilter === 'incoming'
+                                  ? 'Keine eingehenden Nachrichten'
+                                  : messageFilter === 'outgoing'
+                                  ? 'Keine gesendeten Nachrichten'
+                                  : 'Noch keine Nachrichten'}
+                              </p>
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div className="divide-y divide-gray-100">
+                            {filteredMessages.map((msg) => {
+                              const isIncoming = msg.direction === 'incoming'
+                              return (
+                                <div
+                                  key={msg.id}
+                                  onClick={() => setSelectedMessageDetail(msg)}
+                                  className={`px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                    selectedMessageDetail?.id === msg.id ? 'bg-primary-50 border-l-2 border-primary-600' : ''
+                                  } ${isIncoming && !msg.read ? 'bg-blue-50/50' : ''}`}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <div className={`shrink-0 rounded-lg p-1.5 mt-0.5 ${
+                                      isIncoming
+                                        ? (msg.read ? 'bg-blue-50' : 'bg-blue-100')
+                                        : 'bg-green-50'
+                                    }`}>
+                                      {isIncoming ? (
+                                        <Mail className={`h-3.5 w-3.5 ${msg.read ? 'text-blue-400' : 'text-blue-600'}`} />
+                                      ) : (
+                                        <MessageSquare className="h-3.5 w-3.5 text-green-600" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 mb-0.5">
+                                        {isIncoming && !msg.read && (
+                                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                                        )}
+                                        <p className={`truncate text-sm ${
+                                          isIncoming && !msg.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
+                                        }`}>
+                                          {msg.subject}
+                                        </p>
+                                      </div>
+                                      <p className="text-xs text-gray-500 truncate">{msg.content.substring(0, 50)}...</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs text-gray-400">
+                                          {new Date(msg.sentAt).toLocaleDateString('de-DE', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                          })}
+                                        </span>
+                                        {!isIncoming && (
+                                          <span className={`text-xs ${msg.customerRead ? 'text-green-600' : 'text-gray-400'}`}>
+                                            {msg.customerRead ? '✓ Gelesen' : '○ Ungelesen'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Message Detail (Right Side) */}
+                  <div className="flex-1 bg-gray-50 overflow-auto">
+                    {selectedMessageDetail ? (
+                      <div className="h-full flex flex-col">
+                        {/* Message Header */}
+                        <div className="border-b border-gray-200 px-5 py-3 bg-white flex-shrink-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              selectedMessageDetail.direction === 'incoming'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-green-100 text-green-700'
+                            }`}>
+                              {selectedMessageDetail.direction === 'incoming' ? 'Eingehend' : 'Gesendet'}
+                            </span>
+                            {selectedMessageDetail.direction === 'outgoing' && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                selectedMessageDetail.customerRead
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {selectedMessageDetail.customerRead ? 'Vom Kunden gelesen' : 'Noch nicht gelesen'}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                            {selectedMessageDetail.subject}
+                          </h2>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className={`flex h-8 w-8 items-center justify-center rounded-full font-medium text-sm ${
+                                selectedMessageDetail.direction === 'incoming'
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : 'bg-green-100 text-green-600'
+                              }`}>
+                                {selectedMessageDetail.direction === 'incoming'
+                                  ? selectedMessageDetail.sentBy.charAt(0).toUpperCase()
+                                  : 'A'}
+                              </div>
+                              <div>
+                                {selectedMessageDetail.direction === 'incoming' ? (
+                                  <p className="text-sm font-medium text-gray-900">{selectedMessageDetail.sentBy}</p>
+                                ) : (
+                                  <p className="text-sm font-medium text-gray-900">An: {customer?.companyName}</p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {new Date(selectedMessageDetail.sentAt).toLocaleString('de-DE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Message Body */}
+                        <div className="flex-1 px-5 py-4 overflow-auto bg-white">
+                          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+                            {selectedMessageDetail.content}
+                          </p>
+                        </div>
+
+                        {/* Message Actions */}
+                        <div className="border-t border-gray-200 px-5 py-3 bg-white flex justify-end flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              handleDeleteMessage(selectedMessageDetail.id)
+                              setSelectedMessageDetail(null)
+                            }}
+                            disabled={isDeletingMessage === selectedMessageDetail.id}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            {isDeletingMessage === selectedMessageDetail.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <MessageSquare className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">Wählen Sie eine Nachricht aus</p>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="divide-y divide-gray-100">
-                  {(() => {
-                    const filteredMessages = messages.filter((m) => {
-                      if (messageFilter === 'all') return true
-                      return (m.messageType || 'normal') === messageFilter
-                    })
-
-                    if (filteredMessages.length === 0) {
-                      return (
-                        <div className="px-6 py-12 text-center">
-                          <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">
-                            {messageFilter === 'status_update'
-                              ? 'Keine Status-Updates vorhanden'
-                              : messageFilter === 'normal'
-                              ? 'Keine normalen Nachrichten vorhanden'
-                              : 'Noch keine Nachrichten gesendet'}
-                          </p>
-                        </div>
-                      )
-                    }
-
-                    return filteredMessages.map((msg) => {
-                      const isStatusUpdate = msg.messageType === 'status_update'
-                      return (
-                        <div key={msg.id} className={`px-6 py-4 hover:bg-gray-50 ${!msg.read ? (isStatusUpdate ? 'bg-orange-50/50' : 'bg-blue-50/50') : ''}`}>
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3 flex-1 min-w-0">
-                              {/* Icon based on message type */}
-                              <div className={`shrink-0 rounded-lg p-2 mt-0.5 ${
-                                isStatusUpdate
-                                  ? (msg.read ? 'bg-orange-50' : 'bg-orange-100')
-                                  : (msg.read ? 'bg-gray-100' : 'bg-blue-100')
-                              }`}>
-                                {isStatusUpdate ? (
-                                  <RefreshCw className={`h-4 w-4 ${msg.read ? 'text-orange-400' : 'text-orange-600'}`} />
-                                ) : (
-                                  <Mail className={`h-4 w-4 ${msg.read ? 'text-gray-500' : 'text-blue-600'}`} />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h5 className="font-medium text-gray-900 truncate">{msg.subject}</h5>
-                                  {isStatusUpdate && (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                                      Status-Update
-                                    </span>
-                                  )}
-                                  {msg.actionRequired && (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                                      Aktion erforderlich
-                                    </span>
-                                  )}
-                                  {!msg.read && (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                                      Ungelesen
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{msg.content}</p>
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
-                                  <span>
-                                    {new Date(msg.sentAt).toLocaleDateString('de-DE', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </span>
-                                  <span>von {msg.sentBy}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteMessage(msg.id)}
-                              disabled={isDeletingMessage === msg.id}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Nachricht löschen"
-                            >
-                              {isDeletingMessage === msg.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
               </div>
+
+              {/* Floating Action Button */}
+              <button
+                onClick={() => setShowMessageComposeModal(true)}
+                className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg hover:bg-primary-700 transition-colors z-40"
+                title="Neue Nachricht"
+              >
+                <Pencil className="h-6 w-6" />
+              </button>
+
+              {/* Compose Message Modal */}
+              {showMessageComposeModal && (
+                <div className="fixed inset-0 z-50 flex items-end justify-end p-6 pointer-events-none">
+                  <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl border border-gray-200 pointer-events-auto">
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 bg-gray-100 rounded-t-xl">
+                      <h3 className="font-semibold text-gray-900">Nachricht an {customer?.companyName}</h3>
+                      <button
+                        onClick={() => {
+                          setShowMessageComposeModal(false)
+                          setNewMessageSubject('')
+                          setNewMessageContent('')
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="p-4 space-y-4">
+                      {/* Subject */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
+                        <input
+                          type="text"
+                          value={newMessageSubject}
+                          onChange={(e) => setNewMessageSubject(e.target.value)}
+                          placeholder="Betreff der Nachricht"
+                          className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                      </div>
+
+                      {/* Content */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nachricht</label>
+                        <textarea
+                          rows={6}
+                          value={newMessageContent}
+                          onChange={(e) => setNewMessageContent(e.target.value)}
+                          placeholder="Ihre Nachricht..."
+                          className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-4 py-3">
+                      <button
+                        onClick={() => {
+                          setShowMessageComposeModal(false)
+                          setNewMessageSubject('')
+                          setNewMessageContent('')
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleSendMessage()
+                          setShowMessageComposeModal(false)
+                        }}
+                        disabled={isSendingMessage || !newMessageSubject.trim() || !newMessageContent.trim()}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSendingMessage ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Senden...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            Senden
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

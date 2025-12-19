@@ -63,6 +63,9 @@ export default function ProjectDetailPage() {
   const [isEditingContact, setIsEditingContact] = useState(false)
   const [isSavingContact, setIsSavingContact] = useState(false)
 
+  // Dismissed alerts state
+  const [dismissedRejectionAlert, setDismissedRejectionAlert] = useState(false)
+
   // Fetch project data
   useEffect(() => {
     const fetchProject = async () => {
@@ -202,12 +205,13 @@ export default function ProjectDetailPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subject: `Akzeptanzkriterien abgelehnt: ${project.name}`,
-            content: `Der Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" abgelehnt.\n\nBegründung:\n${rejectComment}`,
-            from: customer.name,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" abgelehnt.\n\nBegründung:\n${rejectComment}`,
+            from: `${customer.name} (${customer.companyName})`,
+            direction: 'incoming',
           }),
         })
 
-        // Mark acceptance_required notifications as done
+        // Mark acceptance_required notifications as done and read
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
         const acceptanceNotification = notifications.find(
@@ -218,7 +222,7 @@ export default function ProjectDetailPage() {
           await fetch(`/api/customers/${customer.id}/notifications/${acceptanceNotification.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false }),
+            body: JSON.stringify({ actionRequired: false, read: true }),
           })
         }
       }
@@ -378,15 +382,22 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
         )}
 
         {/* Alert for rejected */}
-        {currentAcceptanceStatus === 'abgelehnt' && (
+        {currentAcceptanceStatus === 'abgelehnt' && !dismissedRejectionAlert && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <X className="h-5 w-5 shrink-0 text-red-600" />
-            <div>
+            <div className="flex-1">
               <p className="font-medium text-red-800">Akzeptanzkriterien abgelehnt</p>
               <p className="mt-1 text-sm text-red-700">
                 Sie haben die Akzeptanzkriterien abgelehnt. Wir werden uns mit Ihnen in Verbindung setzen.
               </p>
             </div>
+            <button
+              onClick={() => setDismissedRejectionAlert(true)}
+              className="shrink-0 rounded-lg p-1 text-red-500 hover:bg-red-100 hover:text-red-700 transition-colors"
+              title="Schließen"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
 

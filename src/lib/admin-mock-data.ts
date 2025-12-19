@@ -495,6 +495,8 @@ export interface AdminMessage {
   sentBy: string
   actionRequired: boolean
   read: boolean
+  customerRead?: boolean
+  direction?: 'incoming' | 'outgoing'
   messageType?: 'normal' | 'status_update'
 }
 

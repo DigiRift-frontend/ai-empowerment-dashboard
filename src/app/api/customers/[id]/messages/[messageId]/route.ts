@@ -8,7 +8,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
-    const { read } = body
+    const { read, customerRead } = body
 
     // Verify the message belongs to the customer
     const existingMessage = await prisma.adminMessage.findUnique({
@@ -19,11 +19,21 @@ export async function PATCH(
       return NextResponse.json({ error: 'Message not found' }, { status: 404 })
     }
 
+    const updateData: Record<string, boolean> = {}
+
+    // Admin read status (for incoming messages from customer)
+    if (read !== undefined) {
+      updateData.read = read
+    }
+
+    // Customer read status (for outgoing messages to customer)
+    if (customerRead !== undefined) {
+      updateData.customerRead = customerRead
+    }
+
     const updatedMessage = await prisma.adminMessage.update({
       where: { id: params.messageId },
-      data: {
-        read: read !== undefined ? read : existingMessage.read,
-      },
+      data: updateData,
     })
 
     return NextResponse.json(updatedMessage)

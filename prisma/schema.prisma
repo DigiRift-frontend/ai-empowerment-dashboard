@@ -90,6 +90,11 @@ enum AdminMessageType {
   status_update
 }
 
+enum MessageDirection {
+  incoming  // Vom Kunden zum Admin
+  outgoing  // Vom Admin zum Kunden
+}
+
 // ==================== MODELS ====================
 
 // Kundenberater
@@ -499,12 +504,14 @@ model Notification {
 
 // Admin Nachrichten
 model AdminMessage {
-  id          String           @id @default(cuid())
-  subject     String
-  content     String
-  read        Boolean          @default(false)
-  from        String
-  messageType AdminMessageType @default(normal)
+  id           String           @id @default(cuid())
+  subject      String
+  content      String
+  read         Boolean          @default(false)  // Admin hat gelesen (für eingehende)
+  customerRead Boolean          @default(false)  // Kunde hat gelesen (für ausgehende)
+  from         String
+  messageType  AdminMessageType @default(normal)
+  direction    MessageDirection @default(incoming)
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)

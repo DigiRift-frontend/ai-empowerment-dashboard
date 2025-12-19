@@ -137,8 +137,8 @@ export default function TeamPage() {
 
   const getModuleName = (moduleId: string | null | undefined) => {
     if (!moduleId) return null
-    const module = modules.find((m: any) => m.id === moduleId)
-    return module?.name || null
+    const foundModule = modules.find((m: any) => m.id === moduleId)
+    return foundModule?.name || null
   }
 
   return (
