@@ -632,11 +632,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                     {project.acceptanceCriteria.map((criterion: AcceptanceCriterion, index: number) => (
                       <div
                         key={criterion.id}
-                        className={`flex items-start gap-3 rounded-lg border p-4 ${
-                          currentAcceptanceStatus === 'akzeptiert'
-                            ? 'border-green-200 bg-green-50'
-                            : 'border-gray-200 bg-white'
-                        }`}
+                        className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4"
                       >
                         <div
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
@@ -652,7 +648,7 @@ ${i + 1}. ${formatDate(tf.date)}: ${tf.feedback} ${tf.resolved ? '[Erledigt]' : 
                           )}
                         </div>
                         <div className="flex-1">
-                          <p className={`text-sm ${currentAcceptanceStatus === 'akzeptiert' ? 'text-green-800' : 'text-gray-900'}`}>
+                          <p className="text-sm text-gray-900">
                             {criterion.description}
                           </p>
                         </div>
