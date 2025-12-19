@@ -82,6 +82,23 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
     }
   }
 
+  const markAllAsRead = async () => {
+    try {
+      await Promise.all(
+        notifications.map((n) =>
+          fetch(`/api/admin/messages/${n.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ read: true }),
+          })
+        )
+      )
+      setNotifications([])
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
   const unreadCount = notifications.length
 
   return (
@@ -111,11 +128,21 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
             <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-lg">
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="font-semibold text-gray-900">Benachrichtigungen</h3>
-                {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                    {unreadCount} neu
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <>
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-xs text-primary-600 hover:text-primary-700"
+                      >
+                        Alle gelesen
+                      </button>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                        {unreadCount} neu
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="max-h-80 overflow-auto">
                 {notifications.length === 0 ? (
