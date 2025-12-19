@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Notification } from '@/types'
-import { formatDate } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import {
   Bell,
   CheckCircle,
@@ -311,7 +311,7 @@ export function NotificationsDropdown({
                               {notification.message}
                             </p>
                             <p className="mt-1 text-xs text-gray-400">
-                              {formatDate(notification.createdAt)}
+                              {formatDateTime(notification.createdAt)}
                             </p>
                           </div>
                           <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
@@ -363,7 +363,7 @@ export function NotificationsDropdown({
                               Von: {message.from}
                             </p>
                             <p className="mt-1 text-xs text-gray-400">
-                              {formatDate(message.createdAt)}
+                              {formatDateTime(message.createdAt)}
                             </p>
                           </div>
                           <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
@@ -403,7 +403,7 @@ export function NotificationsDropdown({
                           {notification.message}
                         </p>
                         <p className="mt-1 text-xs text-gray-400">
-                          {formatDate(notification.createdAt)}
+                          {formatDateTime(notification.createdAt)}
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
@@ -460,7 +460,7 @@ export function NotificationsDropdown({
                             Von: {message.from}
                           </p>
                           <p className="mt-1 text-xs text-gray-400">
-                            {formatDate(message.createdAt)}
+                            {formatDateTime(message.createdAt)}
                           </p>
                         </div>
                         <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />

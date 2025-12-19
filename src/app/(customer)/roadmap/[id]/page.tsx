@@ -164,6 +164,18 @@ export default function ProjectDetailPage() {
             body: JSON.stringify({ actionRequired: false }),
           })
         }
+
+        // Send acceptance message to admin
+        await fetch(`/api/customers/${customer.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `Akzeptanzkriterien akzeptiert: ${project.name}`,
+            content: `Kunde: ${customer.name}\nUnternehmen: ${customer.companyName}\n\nDer Kunde hat die Akzeptanzkriterien für das Modul "${project.name}" akzeptiert.\n\nDas Modul kann nun in die nächste Phase übergehen.`,
+            from: `${customer.name} (${customer.companyName})`,
+            direction: 'incoming',
+          }),
+        })
       }
 
       // Update local state

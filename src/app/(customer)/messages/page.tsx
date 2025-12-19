@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCustomer } from '@/hooks/use-customers'
 import { useAuth } from '@/hooks/use-auth'
-import { formatDate } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import {
   MessageSquare,
   Mail,
@@ -283,7 +283,7 @@ export default function MessagesPage() {
                               {message.from}
                             </p>
                             <p className="mt-1 text-xs text-gray-400">
-                              {formatDate(message.createdAt)}
+                              {formatDateTime(message.createdAt)}
                             </p>
                           </div>
                         </button>
@@ -327,7 +327,7 @@ export default function MessagesPage() {
                             {notification.title}
                           </p>
                           <p className="mt-1 text-xs text-gray-400">
-                            {formatDate(notification.createdAt)}
+                            {formatDateTime(notification.createdAt)}
                           </p>
                         </div>
                         <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
@@ -349,7 +349,7 @@ export default function MessagesPage() {
                       <CardTitle>{selectedMessage.subject}</CardTitle>
                       <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
                         <span>Von: {selectedMessage.from}</span>
-                        <span>{formatDate(selectedMessage.createdAt)}</span>
+                        <span>{formatDateTime(selectedMessage.createdAt)}</span>
                       </div>
                     </div>
                     {isMessageUnread(selectedMessage) && (
