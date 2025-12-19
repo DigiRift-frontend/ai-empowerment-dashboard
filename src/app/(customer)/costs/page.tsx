@@ -207,6 +207,7 @@ export default function CostsPage() {
                 value={(membership.usedPoints / membership.monthlyPoints) * 100}
                 size="sm"
                 className="mt-3"
+                highIsGood={false}
               />
             </CardContent>
           </Card>
@@ -371,6 +372,7 @@ export default function CostsPage() {
                           value={(summary.total / membership.monthlyPoints) * 100}
                           size="sm"
                           className="mt-2"
+                          highIsGood={false}
                         />
                         <p className="mt-1 text-xs text-gray-500">
                           {Math.round((summary.total / membership.monthlyPoints) * 100)}% des Budgets

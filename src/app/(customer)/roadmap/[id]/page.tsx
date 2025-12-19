@@ -172,21 +172,24 @@ export default function ProjectDetailPage() {
         }),
       })
 
-      // Mark acceptance_required notifications as done
+      // Mark ALL acceptance_required notifications as done
       if (customer?.id) {
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
-        const acceptanceNotification = notifications.find(
+        const acceptanceNotifications = notifications.filter(
           (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
             n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired
         )
-        if (acceptanceNotification) {
-          await fetch(`/api/customers/${customer.id}/notifications/${acceptanceNotification.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false }),
-          })
-        }
+        // Mark all matching notifications as done
+        await Promise.all(
+          acceptanceNotifications.map((n: { id: string }) =>
+            fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false, read: true }),
+            })
+          )
+        )
 
         // Send acceptance message to admin
         await fetch(`/api/customers/${customer.id}/messages`, {
@@ -246,20 +249,22 @@ export default function ProjectDetailPage() {
           }),
         })
 
-        // Mark acceptance_required notifications as done and read
+        // Mark ALL acceptance_required notifications as done and read
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
-        const acceptanceNotification = notifications.find(
+        const acceptanceNotifications = notifications.filter(
           (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
             n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired
         )
-        if (acceptanceNotification) {
-          await fetch(`/api/customers/${customer.id}/notifications/${acceptanceNotification.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false, read: true }),
-          })
-        }
+        await Promise.all(
+          acceptanceNotifications.map((n: { id: string }) =>
+            fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false, read: true }),
+            })
+          )
+        )
       }
 
       // Update local state
@@ -290,20 +295,22 @@ export default function ProjectDetailPage() {
       })
 
       if (customer?.id) {
-        // Mark Abnahme notifications as done
+        // Mark ALL Abnahme notifications as done
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
-        const abnahmeNotification = notifications.find(
+        const abnahmeNotifications = notifications.filter(
           (n: { type: string; relatedProjectId: string; actionRequired: boolean; title?: string }) =>
             n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired && n.title?.includes('Abnahme')
         )
-        if (abnahmeNotification) {
-          await fetch(`/api/customers/${customer.id}/notifications/${abnahmeNotification.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false }),
-          })
-        }
+        await Promise.all(
+          abnahmeNotifications.map((n: { id: string }) =>
+            fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false, read: true }),
+            })
+          )
+        )
 
         // Send Abnahme message to admin
         await fetch(`/api/customers/${customer.id}/messages`, {
@@ -396,20 +403,22 @@ export default function ProjectDetailPage() {
           }),
         })
 
-        // Mark Abnahme notifications as done
+        // Mark ALL Abnahme notifications as done
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
-        const abnahmeNotification = notifications.find(
+        const abnahmeNotifications = notifications.filter(
           (n: { type: string; relatedProjectId: string; actionRequired: boolean; title?: string }) =>
             n.type === 'acceptance_required' && n.relatedProjectId === projectId && n.actionRequired && n.title?.includes('Abnahme')
         )
-        if (abnahmeNotification) {
-          await fetch(`/api/customers/${customer.id}/notifications/${abnahmeNotification.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false, read: true }),
-          })
-        }
+        await Promise.all(
+          abnahmeNotifications.map((n: { id: string }) =>
+            fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false, read: true }),
+            })
+          )
+        )
       }
 
       // Update local state
@@ -464,20 +473,22 @@ export default function ProjectDetailPage() {
             }),
           })
 
-          // Mark test_required notifications as done
+          // Mark ALL test_required notifications as done
           const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
           const notifications = await notificationsRes.json()
-          const testNotification = notifications.find(
+          const testNotifications = notifications.filter(
             (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
               n.type === 'test_required' && n.relatedProjectId === projectId && n.actionRequired
           )
-          if (testNotification) {
-            await fetch(`/api/customers/${customer.id}/notifications/${testNotification.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ actionRequired: false }),
-            })
-          }
+          await Promise.all(
+            testNotifications.map((n: { id: string }) =>
+              fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ actionRequired: false, read: true }),
+              })
+            )
+          )
         }
 
         setTestCompleted(true)
@@ -517,20 +528,22 @@ export default function ProjectDetailPage() {
           }),
         })
 
-        // Mark test_required notifications as done
+        // Mark ALL test_required notifications as done
         const notificationsRes = await fetch(`/api/customers/${customer.id}/notifications`)
         const notifications = await notificationsRes.json()
-        const testNotification = notifications.find(
+        const testNotifications = notifications.filter(
           (n: { type: string; relatedProjectId: string; actionRequired: boolean }) =>
             n.type === 'test_required' && n.relatedProjectId === projectId && n.actionRequired
         )
-        if (testNotification) {
-          await fetch(`/api/customers/${customer.id}/notifications/${testNotification.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionRequired: false }),
-          })
-        }
+        await Promise.all(
+          testNotifications.map((n: { id: string }) =>
+            fetch(`/api/customers/${customer.id}/notifications/${n.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionRequired: false, read: true }),
+            })
+          )
+        )
       }
 
       setTestCompleted(true)

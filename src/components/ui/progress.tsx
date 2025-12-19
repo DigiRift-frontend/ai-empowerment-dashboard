@@ -9,10 +9,12 @@ interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   showLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
   variant?: 'default' | 'success' | 'warning' | 'danger'
+  /** If true, high values are good (green). If false, high values are bad (red). Default: true */
+  highIsGood?: boolean
 }
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  ({ className, value = 0, max = 100, showLabel = false, size = 'md', variant = 'default', ...props }, ref) => {
+  ({ className, value = 0, max = 100, showLabel = false, size = 'md', variant = 'default', highIsGood = true, ...props }, ref) => {
     const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
 
     const sizeClasses = {
@@ -29,9 +31,16 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     }
 
     // Auto-determine variant based on percentage if default
-    const autoVariant = variant === 'default'
-      ? percentage > 90 ? 'danger' : percentage > 70 ? 'warning' : 'default'
-      : variant
+    let autoVariant = variant
+    if (variant === 'default') {
+      if (highIsGood) {
+        // For progress bars: 100% = green, low = default (blue)
+        autoVariant = percentage >= 100 ? 'success' : 'default'
+      } else {
+        // For budget/usage bars: high = red (bad), low = default (blue)
+        autoVariant = percentage > 90 ? 'danger' : percentage > 70 ? 'warning' : 'default'
+      }
+    }
 
     return (
       <div className={cn('w-full', className)} ref={ref} {...props}>

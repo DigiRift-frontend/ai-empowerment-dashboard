@@ -20,7 +20,6 @@ import {
   LayoutGrid,
   List,
   AlertTriangle,
-  FileCheck,
   Download,
   User,
   FlaskConical,
@@ -157,78 +156,6 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
           </div>
         )}
 
-        {/* Summary Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-5">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Geplant</p>
-                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.geplant.length}</p>
-                </div>
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <Calendar className="h-6 w-6 text-gray-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">In Arbeit</p>
-                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.in_arbeit.length}</p>
-                </div>
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <Clock className="h-6 w-6 text-gray-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Im Test</p>
-                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.im_test.length}</p>
-                </div>
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <FlaskConical className="h-6 w-6 text-gray-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Abgeschlossen</p>
-                  <p className="text-2xl font-bold text-gray-900">{itemsByStatus.abgeschlossen.length}</p>
-                </div>
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <CheckCircle2 className="h-6 w-6 text-gray-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Ausstehend</p>
-                  <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
-                </div>
-                <div className="rounded-lg bg-gray-100 p-3">
-                  <FileCheck className="h-6 w-6 text-gray-500" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Controls */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -334,6 +261,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 </div>
                               )}
 
+                              {/* Progress Bar (not for geplant) */}
                               {status !== 'geplant' && (
                                 <div className="mb-3">
                                   <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
@@ -341,6 +269,21 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                     <span>{item.progress || 0}%</span>
                                   </div>
                                   <Progress value={item.progress || 0} size="sm" />
+                                </div>
+                              )}
+
+                              {/* Live Status for completed modules */}
+                              {item.status === 'abgeschlossen' && (
+                                <div className="mb-3">
+                                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${
+                                    item.liveStatus === 'pausiert'
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : item.liveStatus === 'deaktiviert'
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
+                                  </span>
                                 </div>
                               )}
 
@@ -399,6 +342,18 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 Bestätigung erforderlich
                               </Badge>
                             )}
+                            {/* Live Status Badge for completed modules */}
+                            {item.status === 'abgeschlossen' && (
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                item.liveStatus === 'pausiert'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : item.liveStatus === 'deaktiviert'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 text-sm text-gray-600">{item.description}</p>
                           {item.assignee && (
@@ -409,6 +364,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                           )}
                         </div>
 
+                        {/* Progress Bar */}
                         <div className="w-32">
                           <Progress value={item.progress || 0} size="sm" showLabel />
                         </div>
@@ -468,13 +424,28 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                     Bestätigung
                                   </span>
                                 )}
+                                {/* Live Status Badge for completed modules */}
+                                {item.status === 'abgeschlossen' && (
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    item.liveStatus === 'pausiert'
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : item.liveStatus === 'deaktiviert'
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
+                                  </span>
+                                )}
+                                {/* Progress percentage (no bar) */}
+                                {item.status !== 'geplant' && (
+                                  <span className="text-xs text-gray-500">
+                                    {item.progress || 0}%
+                                  </span>
+                                )}
                               </div>
                               <span className="text-sm text-gray-500">{date && formatDate(date)}</span>
                             </div>
                             <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                            {item.status !== 'geplant' && (
-                              <Progress value={item.progress || 0} size="sm" className="mt-2" />
-                            )}
                           </div>
                         </div>
                       </Link>

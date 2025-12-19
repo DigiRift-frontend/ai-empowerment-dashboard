@@ -176,6 +176,7 @@ export default function DashboardPage() {
                     <Progress
                       value={(membership.usedPoints / membership.monthlyPoints) * 100}
                       size="sm"
+                      highIsGood={false}
                     />
                   </div>
                 </CardContent>

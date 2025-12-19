@@ -182,6 +182,28 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // First, get the module to find the customerId
+    const moduleToDelete = await prisma.module.findUnique({
+      where: { id: params.id },
+      select: { customerId: true },
+    })
+
+    if (moduleToDelete) {
+      // Mark all related notifications as done before deleting
+      await prisma.notification.updateMany({
+        where: {
+          customerId: moduleToDelete.customerId,
+          relatedProjectId: params.id,
+          actionRequired: true,
+        },
+        data: {
+          actionRequired: false,
+          read: true,
+        },
+      })
+    }
+
+    // Delete the module
     await prisma.module.delete({
       where: { id: params.id },
     })

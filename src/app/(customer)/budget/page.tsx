@@ -190,7 +190,7 @@ export default function BudgetPage() {
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <Progress value={percentUsed} size="lg" showLabel />
+                  <Progress value={percentUsed} size="lg" showLabel highIsGood={false} />
                 </div>
 
                 <div className="grid gap-3 grid-cols-2 md:grid-cols-5">

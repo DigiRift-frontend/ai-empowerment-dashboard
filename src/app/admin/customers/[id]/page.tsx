@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AdminHeader } from '@/components/admin/admin-header'
 import {
-  mockCustomerRoadmaps,
   schulungskatalog,
   schulungSerien,
   moduleTemplates,
@@ -130,6 +129,7 @@ export default function CustomerDetailPage() {
     contractEnd: '',
   })
   const [isSavingPackage, setIsSavingPackage] = useState(false)
+  const [isSavingRoadmap, setIsSavingRoadmap] = useState(false)
 
   // Credentials State
   const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false)
@@ -174,6 +174,7 @@ export default function CustomerDetailPage() {
     name: '',
     description: '',
     status: 'geplant',
+    priority: 'mittel' as 'hoch' | 'mittel' | 'niedrig',
     monthlyMaintenancePoints: '',
     softwareUrl: '',
     assigneeId: '', // Interner Verantwortlicher (aus team)
@@ -196,7 +197,6 @@ export default function CustomerDetailPage() {
     sentBy: msg.from,
     messageType: msg.messageType || 'normal',
   }))
-  const customerRoadmap = mockCustomerRoadmaps[customerId]
   const initialSchulungAssignments = customer?.schulungAssignments || []
 
   const [customerModules, setCustomerModules] = useState<Module[]>([])
@@ -212,10 +212,22 @@ export default function CustomerDetailPage() {
         status: m.status as ModuleStatus,
       }))
       setCustomerModules(mappedModules)
-      setRoadmapItems(customerRoadmap?.items || [])
+      // Initialize roadmap items from modules that have showInRoadmap !== false
+      // (includes true, null, and undefined - default behavior shows all modules)
+      const modulesInRoadmap = apiModules
+        .filter((m: any) => m.showInRoadmap !== false)
+        .sort((a: any, b: any) => (a.roadmapOrder || 0) - (b.roadmapOrder || 0))
+        .map((m: any, index: number) => ({
+          id: `roadmap-${m.id}`,
+          type: 'modul' as const,
+          moduleId: m.id,
+          order: m.roadmapOrder || index + 1,
+          targetDate: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : undefined,
+        }))
+      setRoadmapItems(modulesInRoadmap)
       setSchulungAssignments(initialSchulungAssignments)
     }
-  }, [customer, apiModules, customerRoadmap, initialSchulungAssignments])
+  }, [customer, apiModules, initialSchulungAssignments])
 
   if (isLoading) {
     return (
@@ -458,6 +470,7 @@ export default function CustomerDetailPage() {
       name: '',
       description: '',
       status: 'geplant',
+      priority: 'mittel',
       monthlyMaintenancePoints: '',
       softwareUrl: '',
       assigneeId: defaultAssignee?.id || '',
@@ -482,6 +495,7 @@ export default function CustomerDetailPage() {
           name: newModuleData.name,
           description: newModuleData.description,
           status: newModuleData.status,
+          priority: newModuleData.priority,
           monthlyMaintenancePoints: parseFloat(newModuleData.monthlyMaintenancePoints) || 0,
           softwareUrl: newModuleData.softwareUrl || null,
           assigneeId: newModuleData.assigneeId || null,
@@ -495,6 +509,7 @@ export default function CustomerDetailPage() {
         name: '',
         description: '',
         status: 'geplant',
+        priority: 'mittel',
         monthlyMaintenancePoints: '',
         softwareUrl: '',
         assigneeId: '',
@@ -559,11 +574,13 @@ export default function CustomerDetailPage() {
   }
 
   const addModuleToRoadmap = (moduleId: string) => {
+    const module = customerModules.find(m => m.id === moduleId)
     const newItem: CustomerRoadmapItem = {
       id: `cri-new-${Date.now()}`,
       type: 'modul',
       moduleId,
       order: roadmapItems.length + 1,
+      targetDate: module?.targetDate ? new Date(module.targetDate).toISOString().split('T')[0] : undefined,
     }
     setRoadmapItems([...roadmapItems, newItem])
     setShowAddToRoadmapModal(false)
@@ -1787,20 +1804,68 @@ export default function CustomerDetailPage() {
               </div>
 
               {/* Save Button */}
-              {roadmapItems.length > 0 && (
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      // In production: API call to save roadmap
-                      console.log('Saving roadmap:', roadmapItems)
+              <div className="flex justify-end">
+                <button
+                  onClick={async () => {
+                    setIsSavingRoadmap(true)
+                    try {
+                      // Get all module IDs in the roadmap
+                      const moduleIdsInRoadmap = roadmapItems
+                        .filter(item => item.type === 'modul' && item.moduleId)
+                        .map(item => item.moduleId)
+
+                      // Update modules in roadmap with their order and targetDate
+                      const updatePromises = roadmapItems
+                        .filter(item => item.type === 'modul' && item.moduleId)
+                        .map((item, index) =>
+                          fetch(`/api/modules/${item.moduleId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              showInRoadmap: true,
+                              roadmapOrder: index + 1,
+                              targetDate: item.targetDate || null,
+                            }),
+                          })
+                        )
+
+                      // Update modules NOT in roadmap to hide them
+                      const modulesToHide = customerModules.filter(
+                        m => !moduleIdsInRoadmap.includes(m.id)
+                      )
+                      const hidePromises = modulesToHide.map(m =>
+                        fetch(`/api/modules/${m.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            showInRoadmap: false,
+                          }),
+                        })
+                      )
+
+                      await Promise.all([...updatePromises, ...hidePromises])
+                      mutate() // Refresh data
                       alert('Roadmap wurde gespeichert!')
-                    }}
-                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-                  >
-                    Roadmap speichern
-                  </button>
-                </div>
-              )}
+                    } catch (error) {
+                      console.error('Error saving roadmap:', error)
+                      alert('Fehler beim Speichern der Roadmap')
+                    } finally {
+                      setIsSavingRoadmap(false)
+                    }
+                  }}
+                  disabled={isSavingRoadmap}
+                  className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50"
+                >
+                  {isSavingRoadmap ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Speichert...
+                    </>
+                  ) : (
+                    'Roadmap speichern'
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
@@ -2404,7 +2469,7 @@ export default function CustomerDetailPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
@@ -2416,6 +2481,18 @@ export default function CustomerDetailPage() {
                     <option value="in_arbeit">In Arbeit</option>
                     <option value="im_test">Im Test</option>
                     <option value="abgeschlossen">Live</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priorität</label>
+                  <select
+                    value={newModuleData.priority}
+                    onChange={(e) => setNewModuleData({ ...newModuleData, priority: e.target.value as 'hoch' | 'mittel' | 'niedrig' })}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="hoch">🔴 Hoch</option>
+                    <option value="mittel">🟡 Mittel</option>
+                    <option value="niedrig">🟢 Niedrig</option>
                   </select>
                 </div>
                 <div>
@@ -2706,7 +2783,7 @@ export default function CustomerDetailPage() {
 
             <div className="flex-1 overflow-auto p-6 space-y-6">
               {/* Module Status Overview */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">Status</p>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[selectedModule.status].color}`}>
@@ -2725,6 +2802,34 @@ export default function CustomerDetailPage() {
                     {selectedModule.acceptanceStatus === 'akzeptiert' ? 'Akzeptiert' :
                      selectedModule.acceptanceStatus === 'abgelehnt' ? 'Abgelehnt' : 'Ausstehend'}
                   </span>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-2">Priorität</p>
+                  <select
+                    value={selectedModule.priority || 'mittel'}
+                    onChange={async (e) => {
+                      const newPriority = e.target.value as 'hoch' | 'mittel' | 'niedrig'
+                      setSelectedModule({ ...selectedModule, priority: newPriority })
+                      setCustomerModules(prev =>
+                        prev.map(m => m.id === selectedModule.id ? { ...m, priority: newPriority } : m)
+                      )
+                      // Save to API
+                      try {
+                        await fetch(`/api/modules/${selectedModule.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ priority: newPriority }),
+                        })
+                      } catch (error) {
+                        console.error('Error updating priority:', error)
+                      }
+                    }}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  >
+                    <option value="hoch">🔴 Hoch</option>
+                    <option value="mittel">🟡 Mittel</option>
+                    <option value="niedrig">🟢 Niedrig</option>
+                  </select>
                 </div>
               </div>
 
