@@ -230,6 +230,11 @@ export default function CustomerDetailPage() {
     )
   }
 
+  // Count unread incoming messages for badge
+  const unreadMessagesCount = messages.filter(
+    (m) => m.direction === 'incoming' && !m.read
+  ).length
+
   const tabs = [
     { id: 'overview' as Tab, label: 'Übersicht', icon: Package },
     { id: 'points' as Tab, label: 'Punkte', icon: Coins },
@@ -660,6 +665,11 @@ export default function CustomerDetailPage() {
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
+                {tab.id === 'messages' && unreadMessagesCount > 0 && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
