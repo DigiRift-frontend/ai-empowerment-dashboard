@@ -272,20 +272,20 @@ export default function SchulungDetailPage() {
               {/* Learning Goals */}
               {schulung.learningGoals && schulung.learningGoals.length > 0 && (
                 <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Target className="h-5 w-5 text-primary-600" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                      <Target className="h-4 w-4 text-primary-600" />
                       Was Sie lernen werden
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2.5">
                       {schulung.learningGoals.map((goal, index) => (
-                        <li key={index} className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center mt-0.5">
-                            <Check className="h-3.5 w-3.5 text-primary-600" />
+                        <li key={index} className="flex items-start gap-2.5">
+                          <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary-50 flex items-center justify-center mt-0.5">
+                            <Check className="h-3 w-3 text-primary-600" />
                           </div>
-                          <span className="text-gray-700">{goal}</span>
+                          <span className="text-sm text-gray-600 leading-relaxed">{goal}</span>
                         </li>
                       ))}
                     </ul>
@@ -296,60 +296,24 @@ export default function SchulungDetailPage() {
               {/* Outcomes */}
               {schulung.outcomes && schulung.outcomes.length > 0 && (
                 <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Lightbulb className="h-5 w-5 text-amber-500" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                      <Lightbulb className="h-4 w-4 text-amber-500" />
                       Wozu befähigen wir Ihr Team
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="grid sm:grid-cols-2 gap-3">
                       {schulung.outcomes.map((outcome, index) => (
                         <div
                           key={index}
-                          className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100"
+                          className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50/50 border border-amber-100/50"
                         >
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                            <Award className="h-4 w-4 text-amber-600" />
+                          <div className="flex-shrink-0 w-6 h-6 rounded bg-amber-100/70 flex items-center justify-center">
+                            <Award className="h-3 w-3 text-amber-600" />
                           </div>
-                          <span className="text-gray-700 text-sm leading-relaxed">{outcome}</span>
+                          <span className="text-sm text-gray-600 leading-relaxed">{outcome}</span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Materials */}
-              {hasMaterials && (
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <BookOpen className="h-5 w-5 text-primary-600" />
-                      Schulungsmaterialien
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {schulung.materials!.map((material) => (
-                        <a
-                          key={material.id}
-                          href={material.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-primary-200 hover:bg-primary-50/50 transition-colors group"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
-                              <FileText className="h-5 w-5 text-gray-600 group-hover:text-primary-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{material.title}</p>
-                              <p className="text-sm text-gray-500 uppercase">{material.fileType}</p>
-                            </div>
-                          </div>
-                          <Download className="h-5 w-5 text-gray-400 group-hover:text-primary-600" />
-                        </a>
                       ))}
                     </div>
                   </CardContent>
@@ -465,78 +429,107 @@ export default function SchulungDetailPage() {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Schulung Details Card */}
               <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-base">Schulungsdetails</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-xs font-medium text-gray-500 uppercase tracking-wide">Schulungsdetails</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <Clock className="h-5 w-5 text-gray-600" />
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Dauer</p>
-                      <p className="font-medium text-gray-900">{schulung.duration}</p>
+                      <p className="text-xs text-gray-400">Dauer</p>
+                      <p className="text-sm text-gray-700">{schulung.duration}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <Award className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
+                      <Award className="h-4 w-4 text-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Punkte</p>
-                      <p className="font-medium text-gray-900">{schulung.points} Punkte</p>
+                      <p className="text-xs text-gray-400">Punkte</p>
+                      <p className="text-sm text-gray-700">{schulung.points} Punkte</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <Video className="h-5 w-5 text-gray-600" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
+                      <Video className="h-4 w-4 text-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Format</p>
-                      <p className="font-medium text-gray-900">{formatLabels[schulung.format]}</p>
+                      <p className="text-xs text-gray-400">Format</p>
+                      <p className="text-sm text-gray-700">{formatLabels[schulung.format]}</p>
                     </div>
                   </div>
 
                   {assignment?.scheduledDate && schulung.format === 'live' && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
-                        <Calendar className="h-5 w-5 text-primary-600" />
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-md bg-primary-50 flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-primary-600" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Termin</p>
-                        <p className="font-medium text-gray-900">{formatDate(assignment.scheduledDate)}</p>
+                        <p className="text-xs text-gray-400">Termin</p>
+                        <p className="text-sm text-gray-700">{formatDate(assignment.scheduledDate)}</p>
                       </div>
                     </div>
                   )}
 
                   {assignment?.participantCount && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Users className="h-5 w-5 text-gray-600" />
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-md bg-gray-50 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-gray-500" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Teilnehmer</p>
-                        <p className="font-medium text-gray-900">{assignment.participantCount} Personen</p>
+                        <p className="text-xs text-gray-400">Teilnehmer</p>
+                        <p className="text-sm text-gray-700">{assignment.participantCount} Personen</p>
                       </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
+              {/* Materials Card in Sidebar */}
+              {hasMaterials && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-gray-500 uppercase tracking-wide">Materialien</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {schulung.materials!.map((material) => (
+                      <a
+                        key={material.id}
+                        href={material.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2.5 p-2 rounded-md hover:bg-gray-50 transition-colors group"
+                      >
+                        <div className="w-7 h-7 rounded bg-gray-100 flex items-center justify-center group-hover:bg-primary-50 transition-colors">
+                          <FileText className="h-3.5 w-3.5 text-gray-500 group-hover:text-primary-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-700 truncate">{material.title}</p>
+                          <p className="text-xs text-gray-400 uppercase">{material.fileType}</p>
+                        </div>
+                        <Download className="h-3.5 w-3.5 text-gray-300 group-hover:text-primary-600" />
+                      </a>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Trainer Card */}
               {hasTrainer && (
                 <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Ihr Trainer</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ihr Trainer</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center overflow-hidden">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden">
                         {schulung.trainer?.avatarUrl ? (
                           <img
                             src={schulung.trainer.avatarUrl}
@@ -544,12 +537,12 @@ export default function SchulungDetailPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <User className="h-8 w-8 text-primary-600" />
+                          <User className="h-5 w-5 text-gray-500" />
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">{schulung.trainer!.name}</p>
-                        <p className="text-sm text-gray-500">{schulung.trainer!.role}</p>
+                        <p className="text-sm font-medium text-gray-700">{schulung.trainer!.name}</p>
+                        <p className="text-xs text-gray-400">{schulung.trainer!.role}</p>
                       </div>
                     </div>
                     {schulung.trainer?.calendlyUrl && (
@@ -557,11 +550,11 @@ export default function SchulungDetailPage() {
                         href={schulung.trainer.calendlyUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-4 flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg border border-primary-200 text-primary-600 hover:bg-primary-50 transition-colors text-sm font-medium"
+                        className="mt-3 flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-xs font-medium"
                       >
-                        <Calendar className="h-4 w-4" />
+                        <Calendar className="h-3 w-3" />
                         Termin vereinbaren
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-2.5 w-2.5" />
                       </a>
                     )}
                   </CardContent>
@@ -570,27 +563,27 @@ export default function SchulungDetailPage() {
 
               {/* Status Card */}
               {assignment && (
-                <Card className={`border-2 ${
-                  isCompleted ? 'border-green-200 bg-green-50/50' : 'border-primary-200 bg-primary-50/50'
+                <Card className={`border ${
+                  isCompleted ? 'border-green-200 bg-green-50/30' : 'border-primary-200 bg-primary-50/30'
                 }`}>
-                  <CardContent className="pt-6">
+                  <CardContent className="pt-4 pb-4">
                     <div className="text-center">
-                      <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center ${
+                      <div className={`w-10 h-10 rounded-full mx-auto flex items-center justify-center ${
                         isCompleted ? 'bg-green-100' : 'bg-primary-100'
                       }`}>
                         {isCompleted ? (
-                          <Check className="h-8 w-8 text-green-600" />
+                          <Check className="h-5 w-5 text-green-600" />
                         ) : (
-                          <GraduationCap className="h-8 w-8 text-primary-600" />
+                          <GraduationCap className="h-5 w-5 text-primary-600" />
                         )}
                       </div>
-                      <p className={`mt-3 font-semibold ${
+                      <p className={`mt-2 text-sm font-medium ${
                         isCompleted ? 'text-green-700' : 'text-primary-700'
                       }`}>
                         {statusLabels[assignment.status]}
                       </p>
                       {assignment.completedDate && (
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           Abgeschlossen am {formatDate(assignment.completedDate)}
                         </p>
                       )}
@@ -605,9 +598,9 @@ export default function SchulungDetailPage() {
                   href={schulung.videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors font-medium"
+                  className="flex items-center justify-center gap-2 w-full py-2 px-4 rounded-md bg-primary-600 text-white hover:bg-primary-700 transition-colors text-sm font-medium"
                 >
-                  <Play className="h-4 w-4" />
+                  <Play className="h-3.5 w-3.5" />
                   Video starten
                 </a>
               )}

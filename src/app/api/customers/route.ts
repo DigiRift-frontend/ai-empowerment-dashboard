@@ -123,7 +123,9 @@ Wir wünschen Ihnen einen erfolgreichen Start!
 Herzliche Grüße
 Ihr AI Empowerment Team`,
         from: 'AI Empowerment Team',
-        read: false,
+        direction: 'outgoing',
+        read: true, // Admin has already "read" outgoing messages
+        customerRead: false,
       },
     })
 

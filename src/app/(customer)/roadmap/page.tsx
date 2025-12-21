@@ -136,23 +136,62 @@ export default function RoadmapPage() {
         })
     }
 
-    // Add schulungen
+    // Add schulungen (individual and from series)
     schulungAssignments.forEach((assignment) => {
-      if (!assignment.schulung) return
+      // Individual schulung
+      if (assignment.schulung) {
+        // Map schulung status: durchgefuehrt and abgeschlossen count as completed
+        const schulungStatus = assignment.status === 'abgeschlossen' || assignment.status === 'durchgefuehrt'
+          ? 'abgeschlossen'
+          : assignment.status === 'in_vorbereitung'
+          ? 'in_arbeit'
+          : 'geplant'
+        items.push({
+          id: assignment.id,
+          type: 'schulung',
+          name: assignment.schulung.title,
+          description: assignment.schulung.description,
+          status: schulungStatus,
+          targetDate: assignment.scheduledDate,
+          schulungId: assignment.schulung.id,
+          format: assignment.schulung.format,
+          scheduledDate: assignment.scheduledDate,
+          rating: assignment.rating,
+          points: assignment.schulung.points,
+        })
+      }
+      // Series - add all schulungen from the series (excluding removed ones)
+      else if (assignment.serie?.schulungItems) {
+        assignment.serie.schulungItems.forEach((item: any) => {
+          if (!item.schulung) return
+          // Skip excluded schulungen
+          if (assignment.excludedSchulungIds?.includes(item.schulung.id)) return
 
-      items.push({
-        id: assignment.id,
-        type: 'schulung',
-        name: assignment.schulung.title,
-        description: assignment.schulung.description,
-        status: assignment.status === 'abgeschlossen' ? 'abgeschlossen' : 'geplant',
-        targetDate: assignment.scheduledDate,
-        schulungId: assignment.schulung.id,
-        format: assignment.schulung.format,
-        scheduledDate: assignment.scheduledDate,
-        rating: assignment.rating,
-        points: assignment.schulung.points,
-      })
+          // Check if this individual schulung is completed
+          const isSchulungCompleted = assignment.completedSchulungIds?.includes(item.schulung.id)
+
+          // Map status: completed schulungen get 'abgeschlossen', others follow series status
+          const schulungStatus = isSchulungCompleted
+            ? 'abgeschlossen'
+            : assignment.status === 'in_vorbereitung'
+            ? 'in_arbeit'
+            : 'geplant'
+
+          items.push({
+            id: `${assignment.id}-${item.schulung.id}`,
+            type: 'schulung',
+            name: item.schulung.title,
+            description: item.schulung.description,
+            status: schulungStatus,
+            targetDate: assignment.scheduledDate,
+            schulungId: item.schulung.id,
+            format: item.schulung.format,
+            scheduledDate: assignment.scheduledDate,
+            rating: assignment.rating,
+            points: item.schulung.points,
+          })
+        })
+      }
     })
 
     return items.sort((a, b) => {
@@ -355,26 +394,39 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                   <div className="space-y-4">
                     {items.map((item: RoadmapItem) => {
                       const isInTest = item.status === 'im_test'
+                      const isCompleted = item.status === 'abgeschlossen'
                       const isSchulung = item.type === 'schulung'
                       const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
                       const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                       return (
                         <Link key={item.id} href={linkHref} className="block">
-                          <Card className={`cursor-pointer transition-all hover:shadow-md ${
-                            isSchulung
+                          <Card className={`cursor-pointer transition-all hover:shadow-md relative ${
+                            isCompleted
+                              ? 'bg-green-50/50 border-green-200'
+                              : isSchulung
                               ? 'border-l-4 border-l-yellow-400 hover:border-primary-300'
                               : isInTest
                               ? 'border-2 border-purple-400 bg-purple-50/50 hover:border-purple-500'
                               : 'hover:border-primary-300'
                           }`}>
+                            {/* Completed checkmark indicator */}
+                            {isCompleted && (
+                              <div className="absolute top-2 right-2">
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              </div>
+                            )}
                             <CardContent className="p-4">
                               {/* Schulung Badge */}
                               {isSchulung && (
-                                <div className="mb-3 -mx-4 -mt-4 rounded-t-lg bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2">
+                                <div className={`mb-3 -mx-4 -mt-4 rounded-t-lg px-4 py-2 ${
+                                  isCompleted
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                                    : 'bg-gradient-to-r from-yellow-500 to-amber-500'
+                                }`}>
                                   <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
-                                    <GraduationCap className="h-4 w-4" />
-                                    Schulung
+                                    {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <GraduationCap className="h-4 w-4" />}
+                                    {isCompleted ? 'Abgeschlossen' : 'Schulung'}
                                   </div>
                                 </div>
                               )}
@@ -389,10 +441,20 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 </div>
                               )}
 
+                              {/* Completed Banner for modules */}
+                              {isCompleted && !isSchulung && (
+                                <div className="mb-3 -mx-4 -mt-4 rounded-t-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Abgeschlossen
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="mb-2 flex items-start justify-between">
                                 <div className="flex items-center gap-2">
-                                  {isSchulung && <FormatIcon className="h-4 w-4 text-yellow-600" />}
-                                  <h4 className="font-medium text-gray-900">{item.name}</h4>
+                                  {isSchulung && <FormatIcon className={`h-4 w-4 ${isCompleted ? 'text-green-600' : 'text-yellow-600'}`} />}
+                                  <h4 className={`font-medium ${isCompleted ? 'text-green-800' : 'text-gray-900'}`}>{item.name}</h4>
                                 </div>
                                 {item.priority ? (
                                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
@@ -456,16 +518,6 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 </div>
                               )}
 
-                              {/* Completed Badge for schulungen */}
-                              {isSchulung && item.status === 'abgeschlossen' && (
-                                <div className="mb-3">
-                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    Abgeschlossen
-                                  </span>
-                                </div>
-                              )}
-
                               {item.targetDate && (
                                 <div className="flex items-center gap-1 text-xs text-gray-500">
                                   <Target className="h-3 w-3" />
@@ -499,16 +551,29 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                   const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
                   const StatusIcon = config.icon
                   const isSchulung = item.type === 'schulung'
+                  const isCompleted = item.status === 'abgeschlossen'
                   const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
                   const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                   return (
                     <Link key={item.id} href={linkHref}>
                       <div className={`flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer ${
-                        isSchulung ? 'border-l-4 border-l-yellow-400' : ''
+                        isCompleted
+                          ? 'bg-green-50/50 border-l-4 border-l-green-400'
+                          : isSchulung
+                          ? 'border-l-4 border-l-yellow-400'
+                          : ''
                       }`}>
-                        <div className={`rounded-lg p-2 ${isSchulung ? 'bg-yellow-100' : config.color}`}>
-                          {isSchulung ? (
+                        <div className={`rounded-lg p-2 ${
+                          isCompleted
+                            ? 'bg-green-100'
+                            : isSchulung
+                            ? 'bg-yellow-100'
+                            : config.color
+                        }`}>
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : isSchulung ? (
                             <GraduationCap className="h-5 w-5 text-yellow-600" />
                           ) : (
                             <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
@@ -517,7 +582,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
 
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-medium text-gray-900">{item.name}</h4>
+                            <h4 className={`font-medium ${isCompleted ? 'text-green-800' : 'text-gray-900'}`}>{item.name}</h4>
                             {/* Schulung Badge */}
                             {isSchulung && (
                               <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 flex items-center gap-1">
@@ -557,13 +622,6 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                   : 'bg-green-100 text-green-700'
                               }`}>
                                 {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
-                              </span>
-                            )}
-                            {/* Completed Badge for schulungen */}
-                            {isSchulung && item.status === 'abgeschlossen' && (
-                              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Abgeschlossen
                               </span>
                             )}
                           </div>
@@ -628,99 +686,122 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
             <CardTitle>Timeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative">
-              <div className="absolute left-4 top-0 h-full w-0.5 bg-gray-200" />
+            {(() => {
+              const timelineItems = roadmapItems.filter((item: RoadmapItem) => item.targetDate || item.scheduledDate)
+              if (timelineItems.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>Keine Termine in der Timeline</p>
+                    <p className="text-sm text-gray-400 mt-1">Items mit Zieldatum werden hier angezeigt</p>
+                  </div>
+                )
+              }
+              return (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 h-full w-0.5 bg-gray-200" />
+                  <div>
+                    {timelineItems
+                      .sort((a: RoadmapItem, b: RoadmapItem) => {
+                        const dateA = new Date(a.scheduledDate || a.targetDate || '')
+                        const dateB = new Date(b.scheduledDate || b.targetDate || '')
+                        return dateB.getTime() - dateA.getTime()
+                      })
+                      .map((item: RoadmapItem) => {
+                        const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
+                        const StatusIcon = config.icon
+                        const date = item.scheduledDate || item.targetDate
+                        const isSchulung = item.type === 'schulung'
+                        const isCompleted = item.status === 'abgeschlossen'
+                        const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
+                        const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
-              <div>
-                {roadmapItems
-                  .filter((item: RoadmapItem) => item.targetDate || item.scheduledDate)
-                  .sort((a: RoadmapItem, b: RoadmapItem) => {
-                    const dateA = new Date(a.scheduledDate || a.targetDate || '')
-                    const dateB = new Date(b.scheduledDate || b.targetDate || '')
-                    return dateB.getTime() - dateA.getTime()
-                  })
-                  .map((item: RoadmapItem) => {
-                    const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
-                    const StatusIcon = config.icon
-                    const date = item.scheduledDate || item.targetDate
-                    const isSchulung = item.type === 'schulung'
-                    const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
-                    const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
-
-                    return (
-                      <Link key={item.id} href={linkHref} className="block mb-3">
-                        <div className="relative flex gap-4 pl-10 cursor-pointer group">
-                          <div className={`absolute left-2.5 rounded-full p-1 ${isSchulung ? 'bg-yellow-100' : config.color}`}>
-                            {isSchulung ? (
-                              <GraduationCap className="h-3 w-3 text-yellow-600" />
-                            ) : (
-                              <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
-                            )}
-                          </div>
-                          <div className={`flex-1 rounded-lg border bg-white p-4 transition-all group-hover:shadow-md ${
-                            isSchulung
-                              ? 'border-l-4 border-l-yellow-400 border-gray-200 group-hover:border-yellow-300'
-                              : 'border-gray-200 group-hover:border-primary-300'
-                          }`}>
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                {/* Schulung Badge */}
-                                {isSchulung && (
-                                  <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                                    <FormatIcon className="h-3 w-3" />
-                                    Schulung
-                                  </span>
-                                )}
-                                {/* Acceptance Status (modules only) */}
-                                {!isSchulung && item.acceptanceStatus === 'ausstehend' && (
-                                  <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    Bestätigung
-                                  </span>
-                                )}
-                                {/* Live Status Badge for completed modules */}
-                                {!isSchulung && item.status === 'abgeschlossen' && (
-                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                    item.liveStatus === 'pausiert'
-                                      ? 'bg-yellow-100 text-yellow-700'
-                                      : item.liveStatus === 'deaktiviert'
-                                      ? 'bg-red-100 text-red-700'
-                                      : 'bg-green-100 text-green-700'
-                                  }`}>
-                                    {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
-                                  </span>
-                                )}
-                                {/* Completed Badge for schulungen */}
-                                {isSchulung && item.status === 'abgeschlossen' && (
-                                  <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    Abgeschlossen
-                                  </span>
-                                )}
-                                {/* Progress percentage (modules only, not for geplant) */}
-                                {!isSchulung && item.status !== 'geplant' && (
-                                  <span className="text-xs text-gray-500">
-                                    {item.progress || 0}%
-                                  </span>
-                                )}
-                                {/* Points (schulungen) */}
-                                {isSchulung && item.points && (
-                                  <span className="text-xs font-medium text-primary-600">
-                                    {item.points} Punkte
-                                  </span>
+                        return (
+                          <Link key={item.id} href={linkHref} className="block mb-3">
+                            <div className="relative flex gap-4 pl-10 cursor-pointer group">
+                              <div className={`absolute left-2.5 rounded-full p-1 ${
+                                isCompleted
+                                  ? 'bg-green-100'
+                                  : isSchulung
+                                  ? 'bg-yellow-100'
+                                  : config.color
+                              }`}>
+                                {isCompleted ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                ) : isSchulung ? (
+                                  <GraduationCap className="h-3 w-3 text-yellow-600" />
+                                ) : (
+                                  <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
                                 )}
                               </div>
-                              <span className="text-sm text-gray-500">{date && formatDate(date)}</span>
+                              <div className={`flex-1 rounded-lg border p-4 transition-all group-hover:shadow-md ${
+                                isCompleted
+                                  ? 'bg-green-50/50 border-l-4 border-l-green-400 border-green-200 group-hover:border-green-300'
+                                  : isSchulung
+                                  ? 'bg-white border-l-4 border-l-yellow-400 border-gray-200 group-hover:border-yellow-300'
+                                  : 'bg-white border-gray-200 group-hover:border-primary-300'
+                              }`}>
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className={`font-medium ${isCompleted ? 'text-green-800' : 'text-gray-900'}`}>{item.name}</h4>
+                                    {/* Completed Badge */}
+                                    {isCompleted && (
+                                      <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Abgeschlossen
+                                      </span>
+                                    )}
+                                    {/* Schulung Badge */}
+                                    {isSchulung && !isCompleted && (
+                                      <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                                        <FormatIcon className="h-3 w-3" />
+                                        Schulung
+                                      </span>
+                                    )}
+                                    {/* Acceptance Status (modules only) */}
+                                    {!isSchulung && item.acceptanceStatus === 'ausstehend' && (
+                                      <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        Bestätigung
+                                      </span>
+                                    )}
+                                    {/* Live Status Badge for completed modules */}
+                                    {!isSchulung && item.status === 'abgeschlossen' && (
+                                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                        item.liveStatus === 'pausiert'
+                                          ? 'bg-yellow-100 text-yellow-700'
+                                          : item.liveStatus === 'deaktiviert'
+                                          ? 'bg-red-100 text-red-700'
+                                          : 'bg-green-100 text-green-700'
+                                      }`}>
+                                        {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
+                                      </span>
+                                    )}
+                                    {/* Progress percentage (modules only, not for geplant) */}
+                                    {!isSchulung && item.status !== 'geplant' && item.status !== 'abgeschlossen' && (
+                                      <span className="text-xs text-gray-500">
+                                        {item.progress || 0}%
+                                      </span>
+                                    )}
+                                    {/* Points (schulungen) */}
+                                    {isSchulung && item.points && (
+                                      <span className="text-xs font-medium text-primary-600">
+                                        {item.points} Punkte
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-gray-500">{date && formatDate(date)}</span>
+                                </div>
+                                <p className="mt-1 text-sm text-gray-600">{item.description}</p>
+                              </div>
                             </div>
-                            <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-              </div>
-            </div>
+                          </Link>
+                        )
+                      })}
+                  </div>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
         )}

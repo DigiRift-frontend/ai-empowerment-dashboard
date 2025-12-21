@@ -219,6 +219,9 @@ model PointTransaction {
   moduleId String?
   module   Module? @relation(fields: [moduleId], references: [id])
 
+  schulungAssignmentId String?
+  schulungAssignment   CustomerSchulungAssignment? @relation(fields: [schulungAssignmentId], references: [id])
+
   createdAt DateTime @default(now())
 }
 
@@ -468,7 +471,8 @@ model CustomerSchulungAssignment {
   status                SchulungAssignmentStatus @default(geplant)
   scheduledDate         DateTime?
   completedDate         DateTime?
-  completedSchulungIds  String[]                 // Für Serien
+  completedSchulungIds  String[]                 // Für Serien - abgeschlossene Schulungen
+  excludedSchulungIds   String[]                 // Für Serien - ausgeschlossene/entfernte Schulungen
 
   // Feedback
   rating       Int?      // 1-5 Sterne
@@ -487,6 +491,8 @@ model CustomerSchulungAssignment {
 
   serieId String?
   serie   SchulungSerie? @relation(fields: [serieId], references: [id])
+
+  pointTransactions PointTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

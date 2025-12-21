@@ -9,7 +9,16 @@ export async function GET(
   try {
     const transactions = await prisma.pointTransaction.findMany({
       where: { customerId: params.id },
-      include: { module: { select: { id: true, name: true } } },
+      include: {
+        module: { select: { id: true, name: true } },
+        schulungAssignment: {
+          select: {
+            id: true,
+            schulung: { select: { id: true, title: true } },
+            serie: { select: { id: true, title: true } },
+          },
+        },
+      },
       orderBy: { date: 'desc' },
     })
 
@@ -30,7 +39,7 @@ export async function POST(
 ) {
   try {
     const body = await request.json()
-    const { description, points, date, category, moduleId } = body
+    const { description, points, date, category, moduleId, schulungId } = body
 
     if (!description || points === undefined || !date || !category) {
       return NextResponse.json(
@@ -60,6 +69,7 @@ export async function POST(
         category,
         customerId: params.id,
         moduleId: moduleId || null,
+        schulungAssignmentId: schulungId || null,
       },
     })
 

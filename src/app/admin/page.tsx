@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AdminHeader } from '@/components/admin/admin-header'
 import { mockCustomers, mockCustomerModules, getAdminStats } from '@/lib/admin-mock-data'
@@ -37,7 +37,7 @@ const tierConfig = {
   'L': { color: 'bg-purple-100 text-purple-700', points: 400 },
 }
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const stats = getAdminStats()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -823,5 +823,13 @@ export default function AdminDashboardPage() {
       </div>
 
     </div>
+  )
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-600" /></div>}>
+      <AdminDashboardContent />
+    </Suspense>
   )
 }

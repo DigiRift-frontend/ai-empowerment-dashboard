@@ -88,6 +88,9 @@ export async function PATCH(
         ...(body.completedSchulungIds !== undefined && {
           completedSchulungIds: body.completedSchulungIds,
         }),
+        ...(body.excludedSchulungIds !== undefined && {
+          excludedSchulungIds: body.excludedSchulungIds,
+        }),
         ...(body.rating !== undefined && { rating: body.rating }),
         ...(body.feedback !== undefined && { feedback: body.feedback }),
         ...(body.feedback !== undefined && { feedbackDate: new Date() }),

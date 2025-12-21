@@ -425,40 +425,65 @@ async function main() {
   ])
   console.log(`Created ${schulungen.length} schulungen`)
 
-  // Create Schulung Serie
-  const serie = await prisma.schulungSerie.create({
+  // Create Schulung Serien
+  const serie1 = await prisma.schulungSerie.create({
     data: {
-      id: 'serie1',
-      title: 'KI-Einführungspaket',
-      description: 'Komplettes Schulungspaket für den KI-Einstieg',
-      totalPoints: 18,
+      id: 'ser1',
+      title: 'KI-Grundlagen Komplett',
+      description: 'Komplette Einführung in KI für alle Mitarbeiter',
+      totalPoints: 35,
+    },
+  })
+
+  const serie2 = await prisma.schulungSerie.create({
+    data: {
+      id: 'ser2',
+      title: 'Prompt Engineering Masterclass',
+      description: 'Von Grundlagen bis Fortgeschritten: Effektive KI-Kommunikation',
+      totalPoints: 22,
     },
   })
 
   await Promise.all([
+    // Serie 1 Items
     prisma.schulungSerieItem.create({
       data: {
-        serieId: serie.id,
+        serieId: serie1.id,
         schulungId: 'sch1',
         order: 1,
       },
     }),
     prisma.schulungSerieItem.create({
       data: {
-        serieId: serie.id,
+        serieId: serie1.id,
         schulungId: 'sch2',
         order: 2,
       },
     }),
     prisma.schulungSerieItem.create({
       data: {
-        serieId: serie.id,
+        serieId: serie1.id,
         schulungId: 'sch3',
         order: 3,
       },
     }),
+    // Serie 2 Items
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: serie2.id,
+        schulungId: 'sch2',
+        order: 1,
+      },
+    }),
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: serie2.id,
+        schulungId: 'sch4',
+        order: 2,
+      },
+    }),
   ])
-  console.log('Created schulung serie')
+  console.log('Created schulung serien')
 
   // Create Workshops
   await Promise.all([

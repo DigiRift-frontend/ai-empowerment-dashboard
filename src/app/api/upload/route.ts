@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 
 // Allowed file types by upload type
-const allowedTypesByCategory = {
+const allowedTypesByCategory: Record<string, string[]> = {
   avatar: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   logo: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   manual: [
@@ -16,13 +16,28 @@ const allowedTypesByCategory = {
     'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ],
+  'schulung-material': [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'image/jpeg',
+    'image/png',
+    'video/mp4',
+    'video/webm',
+    'application/zip',
+  ],
 }
 
 // Max file sizes by upload type
-const maxSizeByCategory = {
+const maxSizeByCategory: Record<string, number> = {
   avatar: 5 * 1024 * 1024, // 5MB
   logo: 5 * 1024 * 1024, // 5MB
   manual: 50 * 1024 * 1024, // 50MB for documents
+  'schulung-material': 100 * 1024 * 1024, // 100MB for training materials
 }
 
 export async function POST(request: Request) {
@@ -37,14 +52,14 @@ export async function POST(request: Request) {
     }
 
     // Determine upload category
-    const category = type === 'manual' ? 'manual' : type === 'avatar' ? 'avatar' : 'logo'
+    const category = type === 'manual' ? 'manual' : type === 'avatar' ? 'avatar' : type === 'schulung-material' ? 'schulung-material' : 'logo'
     const allowedTypes = allowedTypesByCategory[category]
     const maxSize = maxSizeByCategory[category]
 
     // Validate file type
     if (!allowedTypes.includes(file.type)) {
-      const allowedExt = category === 'manual'
-        ? 'PDF, Word, Excel, PowerPoint'
+      const allowedExt = category === 'manual' || category === 'schulung-material'
+        ? 'PDF, Word, Excel, PowerPoint, Bilder, Videos, ZIP'
         : 'JPEG, PNG, GIF, WebP'
       return NextResponse.json({
         error: `Ungültiger Dateityp. Erlaubt: ${allowedExt}`
@@ -60,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     // Determine upload directory
-    const uploadDir = category === 'manual' ? 'manuals' : category === 'avatar' ? 'avatars' : 'logos'
+    const uploadDir = category === 'manual' ? 'manuals' : category === 'avatar' ? 'avatars' : category === 'schulung-material' ? 'schulung-materials' : 'logos'
     const uploadPath = path.join(process.cwd(), 'public', 'uploads', uploadDir)
 
     // Create directory if it doesn't exist

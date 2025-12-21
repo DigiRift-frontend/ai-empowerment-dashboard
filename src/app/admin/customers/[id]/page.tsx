@@ -151,6 +151,7 @@ export default function CustomerDetailPage() {
     date: new Date().toISOString().split('T')[0],
     category: 'entwicklung',
     moduleId: '',
+    schulungId: '',
   })
   const [isBookingPoints, setIsBookingPoints] = useState(false)
 
@@ -162,6 +163,7 @@ export default function CustomerDetailPage() {
     date: string
     category: string
     moduleId: string
+    schulungId: string
   } | null>(null)
   const [isEditingTransaction, setIsEditingTransaction] = useState(false)
   const [isDeletingTransaction, setIsDeletingTransaction] = useState<string | null>(null)
@@ -226,16 +228,38 @@ export default function CustomerDetailPage() {
           targetDate: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : undefined,
         }))
 
-      // Add schulungen that have showInRoadmap !== false
-      const schulungenInRoadmap = initialSchulungAssignments
-        .filter((a: CustomerSchulungAssignment) => a.schulung?.showInRoadmap !== false)
-        .map((a: CustomerSchulungAssignment, index: number) => ({
-          id: `roadmap-schulung-${a.id}`,
-          type: 'schulung' as const,
-          schulungId: a.schulungId || a.schulung?.id,
-          order: modulesInRoadmap.length + index + 1,
-          targetDate: a.scheduledDate ? new Date(a.scheduledDate).toISOString().split('T')[0] : undefined,
-        }))
+      // Add schulungen and series to roadmap
+      const schulungenInRoadmap: CustomerRoadmapItem[] = []
+      let orderCounter = modulesInRoadmap.length + 1
+
+      initialSchulungAssignments.forEach((a: CustomerSchulungAssignment) => {
+        // Individual schulung
+        if (a.schulung && a.schulung?.showInRoadmap !== false) {
+          schulungenInRoadmap.push({
+            id: `roadmap-schulung-${a.id}`,
+            type: 'schulung' as const,
+            schulungId: a.schulungId || a.schulung?.id,
+            order: orderCounter++,
+            targetDate: a.scheduledDate ? new Date(a.scheduledDate).toISOString().split('T')[0] : undefined,
+          })
+        }
+        // Series - add individual schulungen from series (excluding removed ones)
+        else if (a.serie?.schulungItems) {
+          a.serie.schulungItems.forEach((item: any) => {
+            if (!item.schulung) return
+            // Skip excluded schulungen
+            if (a.excludedSchulungIds?.includes(item.schulung.id)) return
+            schulungenInRoadmap.push({
+              id: `roadmap-serie-${a.id}-${item.schulung.id}`,
+              type: 'schulung' as const,
+              schulungId: item.schulung.id,
+              serieId: a.serieId,
+              order: orderCounter++,
+              targetDate: a.scheduledDate ? new Date(a.scheduledDate).toISOString().split('T')[0] : undefined,
+            })
+          })
+        }
+      })
 
       setRoadmapItems([...modulesInRoadmap, ...schulungenInRoadmap])
       setSchulungAssignments(initialSchulungAssignments)
@@ -334,6 +358,7 @@ export default function CustomerDetailPage() {
           date: bookPointsData.date,
           category: bookPointsData.category,
           moduleId: bookPointsData.moduleId || null,
+          schulungId: bookPointsData.schulungId || null,
         }),
       })
       setBookPointsData({
@@ -342,6 +367,7 @@ export default function CustomerDetailPage() {
         date: new Date().toISOString().split('T')[0],
         category: 'entwicklung',
         moduleId: '',
+        schulungId: '',
       })
       setShowBookPointsModal(false)
       mutate() // Refresh customer data
@@ -406,6 +432,7 @@ export default function CustomerDetailPage() {
       date: new Date(t.date).toISOString().split('T')[0],
       category: t.category,
       moduleId: t.moduleId || '',
+      schulungId: t.schulungAssignmentId || '',
     })
   }
 
@@ -558,7 +585,25 @@ export default function CustomerDetailPage() {
 
   // Helper functions for roadmap builder
   const getModuleById = (moduleId: string) => customerModules.find(m => m.id === moduleId)
-  const getSchulungById = (schulungId: string) => schulungskatalog.find(s => s.id === schulungId)
+  const getSchulungById = (schulungId: string) => {
+    // First try mock data
+    const fromCatalog = schulungskatalog.find(s => s.id === schulungId)
+    if (fromCatalog) return fromCatalog
+
+    // Then try individual schulung assignments
+    const fromAssignment = schulungAssignments.find(a => a.schulung?.id === schulungId)
+    if (fromAssignment?.schulung) return fromAssignment.schulung
+
+    // Then try schulungen from series
+    for (const assignment of schulungAssignments) {
+      if (assignment.serie?.schulungItems) {
+        const fromSeries = assignment.serie.schulungItems.find((item: any) => item.schulung?.id === schulungId)
+        if (fromSeries?.schulung) return fromSeries.schulung
+      }
+    }
+
+    return undefined
+  }
 
   const moveRoadmapItem = (index: number, direction: 'up' | 'down') => {
     const newItems = [...roadmapItems]
@@ -646,6 +691,7 @@ export default function CustomerDetailPage() {
 
   // Add schulung or serie to customer
   const addSchulungAssignment = async (type: 'schulung' | 'serie', id: string) => {
+    console.log('addSchulungAssignment called:', { type, id, customerId })
     try {
       const res = await fetch(`/api/customers/${customerId}/schulungen`, {
         method: 'POST',
@@ -657,12 +703,16 @@ export default function CustomerDetailPage() {
         }),
       })
 
+      console.log('API response status:', res.status)
       if (res.ok) {
         const newAssignment = await res.json()
+        console.log('New assignment created:', newAssignment)
         setSchulungAssignments([...schulungAssignments, newAssignment])
         setShowAddSchulungModal(false)
+        mutate() // Refresh customer data to include new assignment
       } else {
-        console.error('Failed to assign schulung')
+        const errorData = await res.text()
+        console.error('Failed to assign schulung:', errorData)
         alert('Fehler beim Zuweisen der Schulung')
         return
       }
@@ -701,8 +751,10 @@ export default function CustomerDetailPage() {
     if (!assignment.serieId) return { completed: 0, total: 0 }
     const serie = schulungSerien.find(s => s.id === assignment.serieId)
     if (!serie) return { completed: 0, total: 0 }
-    const completed = assignment.completedSchulungIds?.length || 0
-    return { completed, total: serie.schulungIds.length }
+    // Filter out excluded schulungen from total
+    const activeSchulungIds = serie.schulungIds.filter(id => !assignment.excludedSchulungIds?.includes(id))
+    const completed = assignment.completedSchulungIds?.filter(id => !assignment.excludedSchulungIds?.includes(id)).length || 0
+    return { completed, total: activeSchulungIds.length }
   }
 
   // Calculate total maintenance points
@@ -1298,6 +1350,7 @@ export default function CustomerDetailPage() {
                       return (
                         <div
                           key={module.id}
+                          id={`module-card-${module.id}`}
                           className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer relative group"
                           onClick={() => {
                             setSelectedModule(module)
@@ -1465,7 +1518,7 @@ export default function CustomerDetailPage() {
 
           {/* Schulungen Tab */}
           {activeTab === 'schulungen' && (
-            <div className="space-y-6">
+            <div id="schulungen-section" className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Schulungen & Serien</h3>
@@ -1523,19 +1576,44 @@ export default function CustomerDetailPage() {
                                     <h5 className="font-medium text-gray-900">{serie.title}</h5>
                                     <p className="text-sm text-gray-500">{serie.description}</p>
                                   </div>
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    assignment.status === 'abgeschlossen'
-                                      ? 'bg-green-100 text-green-700'
-                                      : assignment.status === 'durchgefuehrt'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : assignment.status === 'in_vorbereitung'
-                                          ? 'bg-yellow-100 text-yellow-700'
-                                          : 'bg-gray-100 text-gray-700'
-                                  }`}>
-                                    {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
-                                     assignment.status === 'durchgefuehrt' ? 'Durchgeführt' :
-                                     assignment.status === 'in_vorbereitung' ? 'In Vorbereitung' : 'Geplant'}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      assignment.status === 'abgeschlossen'
+                                        ? 'bg-green-100 text-green-700'
+                                        : assignment.status === 'durchgefuehrt'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : assignment.status === 'in_vorbereitung'
+                                            ? 'bg-yellow-100 text-yellow-700'
+                                            : 'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
+                                       assignment.status === 'durchgefuehrt' ? 'Durchgeführt' :
+                                       assignment.status === 'in_vorbereitung' ? 'In Vorbereitung' : 'Geplant'}
+                                    </span>
+                                    {/* Delete series button */}
+                                    <button
+                                      onClick={async () => {
+                                        if (!confirm('Möchten Sie diese Schulungsserie wirklich entfernen?')) return
+
+                                        // Remove from local state
+                                        setSchulungAssignments(prev => prev.filter(a => a.id !== assignment.id))
+
+                                        // Remove from roadmap (all schulungen from this series)
+                                        setRoadmapItems(prev => prev.filter(item =>
+                                          item.serieId !== assignment.serieId
+                                        ))
+
+                                        // Delete from database
+                                        await fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                                          method: 'DELETE',
+                                        })
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                      title="Serie entfernen"
+                                    >
+                                      <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* Progress Bar */}
@@ -1556,8 +1634,11 @@ export default function CustomerDetailPage() {
 
                                 {/* Individual Schulungen in Series */}
                                 <div className="space-y-2">
-                                  {serie.schulungIds.map((schulungId, index) => {
-                                    const schulung = schulungskatalog.find(s => s.id === schulungId)
+                                  {serie.schulungIds
+                                    .filter(schulungId => !assignment.excludedSchulungIds?.includes(schulungId))
+                                    .map((schulungId, index) => {
+                                    const schulung = schulungskatalog.find(s => s.id === schulungId) ||
+                                      assignment.serie?.schulungItems?.find((item: any) => item.schulung?.id === schulungId)?.schulung
                                     const isCompleted = assignment.completedSchulungIds?.includes(schulungId)
                                     if (!schulung) return null
 
@@ -1568,9 +1649,9 @@ export default function CustomerDetailPage() {
                                           isCompleted ? 'bg-green-50' : 'bg-gray-50'
                                         }`}
                                       >
-                                        <div className="flex items-center justify-center h-6 w-6 rounded-full border-2 text-xs font-medium
-                                          ${isCompleted ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 text-gray-500'}
-                                        ">
+                                        <div className={`flex items-center justify-center h-6 w-6 rounded-full border-2 text-xs font-medium ${
+                                          isCompleted ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 text-gray-500'
+                                        }`}>
                                           {isCompleted ? (
                                             <Check className="h-4 w-4" />
                                           ) : (
@@ -1583,31 +1664,91 @@ export default function CustomerDetailPage() {
                                           </p>
                                           <p className="text-xs text-gray-500">{schulung.duration} • {schulung.points} Punkte</p>
                                         </div>
-                                        {!isCompleted && (
+                                        <div className="flex items-center gap-2">
+                                          {!isCompleted && (
+                                            <button
+                                              onClick={async () => {
+                                                const newCompletedIds = [...(assignment.completedSchulungIds || []), schulungId]
+                                                const activeSchulungen = serie.schulungIds.filter(id => !assignment.excludedSchulungIds?.includes(id))
+                                                const newStatus = newCompletedIds.length >= activeSchulungen.length
+                                                  ? 'abgeschlossen'
+                                                  : 'durchgefuehrt'
+
+                                                // Update local state
+                                                setSchulungAssignments(prev =>
+                                                  prev.map(a =>
+                                                    a.id === assignment.id
+                                                      ? {
+                                                          ...a,
+                                                          completedSchulungIds: newCompletedIds,
+                                                          status: newStatus,
+                                                        }
+                                                      : a
+                                                  )
+                                                )
+                                                // Persist to API (including status)
+                                                await fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                                                  method: 'PATCH',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({
+                                                    completedSchulungIds: newCompletedIds,
+                                                    status: newStatus,
+                                                  }),
+                                                })
+                                              }}
+                                              className="px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                                            >
+                                              Abschließen
+                                            </button>
+                                          )}
+                                          {/* Remove from series button */}
                                           <button
-                                            onClick={() => {
+                                            onClick={async () => {
+                                              if (!confirm('Möchten Sie diese Schulung wirklich aus der Serie entfernen?')) return
+
+                                              const newExcluded = [...(assignment.excludedSchulungIds || []), schulungId]
+
+                                              // Update local state
                                               setSchulungAssignments(prev =>
                                                 prev.map(a =>
                                                   a.id === assignment.id
-                                                    ? {
-                                                        ...a,
-                                                        completedSchulungIds: [...(a.completedSchulungIds || []), schulungId],
-                                                        status: (a.completedSchulungIds?.length || 0) + 1 >= serie.schulungIds.length
-                                                          ? 'abgeschlossen'
-                                                          : 'durchgefuehrt',
-                                                      }
+                                                    ? { ...a, excludedSchulungIds: newExcluded }
                                                     : a
                                                 )
                                               )
+
+                                              // Also remove from roadmap
+                                              setRoadmapItems(prev =>
+                                                prev.filter(item =>
+                                                  !(item.serieId === assignment.serieId && item.schulungId === schulungId)
+                                                )
+                                              )
+
+                                              // Persist to API
+                                              await fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  excludedSchulungIds: newExcluded,
+                                                }),
+                                              })
                                             }}
-                                            className="px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                            title="Aus Serie entfernen"
                                           >
-                                            Abschließen
+                                            <X className="h-4 w-4" />
                                           </button>
-                                        )}
+                                        </div>
                                       </div>
                                     )
                                   })}
+
+                                  {/* Show excluded count if any */}
+                                  {assignment.excludedSchulungIds && assignment.excludedSchulungIds.length > 0 && (
+                                    <div className="text-xs text-gray-400 italic mt-2">
+                                      {assignment.excludedSchulungIds.length} Schulung(en) entfernt
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-sm">
@@ -1687,20 +1828,54 @@ export default function CustomerDetailPage() {
                                   </span>
                                   {assignment.status !== 'abgeschlossen' && (
                                     <button
-                                      onClick={() => {
+                                      onClick={async () => {
+                                        const completedDate = new Date().toISOString().split('T')[0]
+                                        // Update local state
                                         setSchulungAssignments(prev =>
                                           prev.map(a =>
                                             a.id === assignment.id
-                                              ? { ...a, status: 'abgeschlossen', completedDate: new Date().toISOString().split('T')[0] }
+                                              ? { ...a, status: 'abgeschlossen', completedDate }
                                               : a
                                           )
                                         )
+                                        // Persist to database
+                                        await fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({
+                                            status: 'abgeschlossen',
+                                            completedDate,
+                                          }),
+                                        })
                                       }}
                                       className="px-3 py-1 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded transition-colors"
                                     >
                                       Abschließen
                                     </button>
                                   )}
+                                  {/* Delete button */}
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm('Möchten Sie diese Schulung wirklich entfernen?')) return
+
+                                      // Remove from local state
+                                      setSchulungAssignments(prev => prev.filter(a => a.id !== assignment.id))
+
+                                      // Remove from roadmap
+                                      setRoadmapItems(prev => prev.filter(item =>
+                                        !(item.type === 'schulung' && item.schulungId === assignment.schulungId)
+                                      ))
+
+                                      // Delete from database
+                                      await fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                                        method: 'DELETE',
+                                      })
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                    title="Schulung entfernen"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
                                 </div>
                               </div>
                             )
@@ -1820,10 +1995,27 @@ export default function CustomerDetailPage() {
                             )}
                           </div>
 
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
+                          {/* Content - Clickable to navigate to section */}
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer hover:bg-gray-100 rounded-lg p-2 -m-2 transition-colors"
+                            onClick={() => {
+                              if (item.type === 'modul') {
+                                setActiveTab('modules')
+                                // Scroll to module after tab switch
+                                setTimeout(() => {
+                                  document.getElementById(`module-card-${item.moduleId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                }, 100)
+                              } else {
+                                setActiveTab('schulungen')
+                                // Scroll to schulungen section after tab switch
+                                setTimeout(() => {
+                                  document.getElementById('schulungen-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                }, 100)
+                              }
+                            }}
+                          >
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-gray-900 hover:text-primary-600">
                                 {item.type === 'modul' && roadmapModule ? roadmapModule.name : ''}
                                 {item.type === 'schulung' && schulung ? schulung.title : ''}
                                 {item.customTitle || ''}
@@ -1834,6 +2026,11 @@ export default function CustomerDetailPage() {
                               {item.type === 'modul' && roadmapModule && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[roadmapModule.status].color}`}>
                                   {statusConfig[roadmapModule.status].label}
+                                </span>
+                              )}
+                              {item.serieId && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                  Serie
                                 </span>
                               )}
                             </div>
@@ -1933,8 +2130,9 @@ export default function CustomerDetailPage() {
                         })
 
                       // Delete schulung assignments that were removed from roadmap
+                      // Only remove individual schulung assignments, not series assignments (series have serieId, not schulungId)
                       const schulungenToRemove = schulungAssignments.filter(
-                        a => !schulungIdsInRoadmap.includes(a.schulungId) && !schulungIdsInRoadmap.includes(a.schulung?.id)
+                        a => !a.serieId && !schulungIdsInRoadmap.includes(a.schulungId) && !schulungIdsInRoadmap.includes(a.schulung?.id)
                       )
                       const deleteSchulungPromises = schulungenToRemove.map(a =>
                         fetch(`/api/customers/${customerId}/schulungen/${a.id}`, {
@@ -1950,9 +2148,10 @@ export default function CustomerDetailPage() {
                       ])
 
                       // Update local state to remove deleted schulungen
+                      // Keep series assignments (they have serieId) and individual schulungen in roadmap
                       if (schulungenToRemove.length > 0) {
                         setSchulungAssignments(prev =>
-                          prev.filter(a => schulungIdsInRoadmap.includes(a.schulungId) || schulungIdsInRoadmap.includes(a.schulung?.id))
+                          prev.filter(a => a.serieId || schulungIdsInRoadmap.includes(a.schulungId) || schulungIdsInRoadmap.includes(a.schulung?.id))
                         )
                       }
 
@@ -2523,19 +2722,46 @@ export default function CustomerDetailPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Modul (optional)
+                  Zuordnung (optional)
                 </label>
                 <select
-                  value={bookPointsData.moduleId}
-                  onChange={(e) => setBookPointsData({ ...bookPointsData, moduleId: e.target.value })}
+                  value={bookPointsData.moduleId ? `module:${bookPointsData.moduleId}` : bookPointsData.schulungId ? `schulung:${bookPointsData.schulungId}` : ''}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value.startsWith('module:')) {
+                      setBookPointsData({ ...bookPointsData, moduleId: value.replace('module:', ''), schulungId: '' })
+                    } else if (value.startsWith('schulung:')) {
+                      setBookPointsData({ ...bookPointsData, moduleId: '', schulungId: value.replace('schulung:', '') })
+                    } else {
+                      setBookPointsData({ ...bookPointsData, moduleId: '', schulungId: '' })
+                    }
+                  }}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
-                  <option value="">Kein Modul</option>
-                  {customerModules.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  <option value="">Keine Zuordnung</option>
+                  <optgroup label="Module">
+                    {customerModules.map((m) => (
+                      <option key={m.id} value={`module:${m.id}`}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Schulungen">
+                    {schulungAssignments
+                      .filter(a => a.schulung)
+                      .map((a) => (
+                        <option key={a.id} value={`schulung:${a.id}`}>
+                          {a.schulung?.title}
+                        </option>
+                      ))}
+                    {schulungAssignments
+                      .filter(a => a.serie)
+                      .map((a) => (
+                        <option key={a.id} value={`schulung:${a.id}`}>
+                          {a.serie?.title} (Serie)
+                        </option>
+                      ))}
+                  </optgroup>
                 </select>
               </div>
             </div>

@@ -219,6 +219,7 @@ export interface CustomerRoadmapItem {
   type: 'modul' | 'schulung'
   moduleId?: string // Referenz zum Modul
   schulungId?: string // Referenz zur Schulung
+  serieId?: string // Referenz zur Serie (wenn Schulung Teil einer Serie ist)
   customTitle?: string // Für custom Schulungen
   order: number // Reihenfolge
   targetDate?: string
@@ -231,12 +232,22 @@ export interface CustomerRoadmap {
   updatedAt: string
 }
 
+// Schulung Serie Item (Verknüpfung)
+export interface SchulungSerieItem {
+  id: string
+  order: number
+  serieId: string
+  schulungId: string
+  schulung?: Schulung
+}
+
 // Schulung Serie (gruppierte Schulungen)
 export interface SchulungSerie {
   id: string
   title: string
   description: string
   schulungIds: string[] // IDs der enthaltenen Schulungen in Reihenfolge
+  schulungItems?: SchulungSerieItem[] // Aufgelöste Schulungen mit Reihenfolge
   totalPoints: number // Summe aller Schulungspunkte
   createdAt: string
   updatedAt: string
@@ -255,6 +266,7 @@ export interface CustomerSchulungAssignment {
   scheduledDate?: string
   completedDate?: string
   completedSchulungIds?: string[] // Für Serien: welche Schulungen sind bereits abgeschlossen
+  excludedSchulungIds?: string[] // Für Serien: welche Schulungen wurden entfernt/ausgeschlossen
 
   // Feedback
   rating?: number // 1-5 Sterne
