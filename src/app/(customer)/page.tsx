@@ -408,12 +408,12 @@ export default function DashboardPage() {
 
                 {/* Abgeschlossene Schulungen */}
                 <Link href="/schulungen?tab=abgeschlossen" className="block">
-                  <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 hover:bg-green-50 transition-colors">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-gray-400" />
                       <span className="text-xs font-medium text-gray-500 uppercase">Abgeschlossen</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-600">{schulungenStats.completed.length}</p>
+                    <p className="text-2xl font-bold text-gray-900">{schulungenStats.completed.length}</p>
                     {schulungenStats.completed.length > 0 && (
                       <p className="text-xs text-gray-500 mt-1">
                         Zuletzt: {schulungenStats.completed[schulungenStats.completed.length - 1]?.title?.substring(0, 20)}...
@@ -422,41 +422,17 @@ export default function DashboardPage() {
                   </div>
                 </Link>
 
-                {/* Nächste Schulung oder CTA */}
-                {schulungenStats.upcoming.length > 0 ? (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-primary-200 bg-primary-50/50 p-4 hover:bg-primary-50 transition-colors">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-4 w-4 text-primary-500" />
-                        <span className="text-xs font-medium text-gray-500 uppercase">Nächster Kurs</span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                        {schulungenStats.upcoming[0]?.title}
-                      </p>
-                      {schulungenStats.upcoming[0]?.scheduledDate && (
-                        <p className="text-xs text-primary-600 mt-1 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(schulungenStats.upcoming[0].scheduledDate)}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                ) : schulungenStats.total === 0 ? (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors h-full flex flex-col items-center justify-center">
-                      <GraduationCap className="h-6 w-6 text-gray-400 mb-1" />
-                      <p className="text-sm text-gray-500">Schulungen entdecken</p>
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                {/* Verfügbare Kurse */}
+                <Link href="/schulungen" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <Award className="h-4 w-4 text-green-500" />
-                      <span className="text-xs font-medium text-green-700 uppercase">Geschafft!</span>
+                      <BookOpen className="h-4 w-4 text-primary-500" />
+                      <span className="text-xs font-medium text-gray-500 uppercase">Kursangebot</span>
                     </div>
-                    <p className="text-sm text-green-700">Alle Schulungen abgeschlossen</p>
+                    <p className="text-2xl font-bold text-primary-600">{schulungenStats.total}</p>
+                    <p className="text-xs text-gray-500 mt-1">Kurse für Ihr Team</p>
                   </div>
-                )}
+                </Link>
               </div>
 
               {/* Liste der anstehenden Schulungen */}
