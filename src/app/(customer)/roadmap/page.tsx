@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,14 +24,70 @@ import {
   User,
   FlaskConical,
   Loader2,
+  GraduationCap,
+  Play,
+  BookOpen,
+  Users,
 } from 'lucide-react'
-import { ModuleStatus } from '@/types'
+import { ModuleStatus, CustomerSchulungAssignment, SchulungFormat } from '@/types'
+
+// Unified roadmap item type
+interface RoadmapItem {
+  id: string
+  type: 'module' | 'schulung'
+  name: string
+  description: string
+  status: ModuleStatus | 'schulung_geplant' | 'schulung_abgeschlossen'
+  priority?: string
+  progress?: number
+  targetDate?: string
+  acceptanceStatus?: string
+  assignee?: { name: string }
+  liveStatus?: string
+  acceptanceCriteria?: any[]
+  // Schulung specific
+  schulungId?: string
+  format?: SchulungFormat
+  scheduledDate?: string
+  rating?: number
+  points?: number
+}
+
+const formatLabels: Record<SchulungFormat, { icon: typeof Users }> = {
+  live: { icon: Users },
+  self_learning: { icon: BookOpen },
+  hybrid: { icon: Play },
+}
 
 export default function RoadmapPage() {
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'hoch' | 'mittel' | 'niedrig'>('all')
+  const [schulungAssignments, setSchulungAssignments] = useState<CustomerSchulungAssignment[]>([])
+
+  // Fetch schulung assignments
+  useEffect(() => {
+    const fetchSchulungen = async () => {
+      if (!customerId) return
+
+      try {
+        const res = await fetch(`/api/customers/${customerId}/schulungen`)
+        if (res.ok) {
+          const data = await res.json()
+          // Filter to only those marked for roadmap
+          const roadmapSchulungen = data.filter((a: CustomerSchulungAssignment) =>
+            a.schulung?.showInRoadmap !== false
+          )
+          setSchulungAssignments(roadmapSchulungen)
+        }
+      } catch (error) {
+        console.error('Error fetching schulungen:', error)
+      }
+    }
+
+    fetchSchulungen()
+  }, [customerId])
 
   const statusConfig = {
     geplant: { label: 'Geplant', color: 'bg-gray-100', textColor: 'text-gray-600', icon: Calendar, columnColor: 'border-gray-300' },
@@ -52,13 +108,59 @@ export default function RoadmapPage() {
     abgelehnt: { label: 'Abgelehnt', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
   }
 
-  // Get roadmap items from modules
+  // Get roadmap items from modules and schulungen
   const roadmapItems = useMemo(() => {
-    if (!customer?.modules) return []
-    return customer.modules
-      .filter((m: any) => m.showInRoadmap !== false)
-      .sort((a: any, b: any) => (a.roadmapOrder || 0) - (b.roadmapOrder || 0))
-  }, [customer?.modules])
+    const items: RoadmapItem[] = []
+
+    // Add modules
+    if (customer?.modules) {
+      customer.modules
+        .filter((m: any) => m.showInRoadmap !== false)
+        .forEach((m: any) => {
+          items.push({
+            id: m.id,
+            type: 'module',
+            name: m.name,
+            description: m.description,
+            status: m.status,
+            priority: m.priority,
+            progress: m.progress,
+            targetDate: m.targetDate,
+            acceptanceStatus: m.acceptanceStatus,
+            assignee: m.assignee,
+            liveStatus: m.liveStatus,
+            acceptanceCriteria: m.acceptanceCriteria,
+          })
+        })
+    }
+
+    // Add schulungen
+    schulungAssignments.forEach((assignment) => {
+      if (!assignment.schulung) return
+
+      items.push({
+        id: assignment.id,
+        type: 'schulung',
+        name: assignment.schulung.title,
+        description: assignment.schulung.description,
+        status: assignment.status === 'abgeschlossen' ? 'abgeschlossen' : 'geplant',
+        targetDate: assignment.scheduledDate,
+        schulungId: assignment.schulung.id,
+        format: assignment.schulung.format,
+        scheduledDate: assignment.scheduledDate,
+        rating: assignment.rating,
+        points: assignment.schulung.points,
+      })
+    })
+
+    return items.sort((a, b) => {
+      // Sort by targetDate if available
+      if (a.targetDate && b.targetDate) {
+        return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
+      }
+      return 0
+    })
+  }, [customer?.modules, schulungAssignments])
 
   const filteredItems = useMemo(() => {
     return priorityFilter === 'all'
@@ -216,19 +318,34 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                   </div>
 
                   <div className="space-y-3">
-                    {items.map((item: any) => {
+                    {items.map((item: RoadmapItem) => {
                       const isInTest = item.status === 'im_test'
+                      const isSchulung = item.type === 'schulung'
+                      const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
+                      const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                       return (
-                        <Link key={item.id} href={`/roadmap/${item.id}`}>
+                        <Link key={item.id} href={linkHref}>
                           <Card className={`cursor-pointer transition-all hover:shadow-md ${
-                            isInTest
+                            isSchulung
+                              ? 'border-l-4 border-l-yellow-400 hover:border-primary-300'
+                              : isInTest
                               ? 'border-2 border-purple-400 bg-purple-50/50 hover:border-purple-500'
                               : 'hover:border-primary-300'
                           }`}>
                             <CardContent className="p-4">
+                              {/* Schulung Badge */}
+                              {isSchulung && (
+                                <div className="mb-3 -mx-4 -mt-4 rounded-t-lg bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2">
+                                  <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
+                                    <GraduationCap className="h-4 w-4" />
+                                    Schulung
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Test Required Banner */}
-                              {isInTest && (
+                              {isInTest && !isSchulung && (
                                 <div className="mb-3 -mx-4 -mt-4 rounded-t-lg bg-purple-600 px-4 py-2 text-center">
                                   <div className="flex items-center justify-center gap-2 text-sm font-semibold text-white">
                                     <FlaskConical className="h-4 w-4" />
@@ -238,31 +355,48 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                               )}
 
                               <div className="mb-2 flex items-start justify-between">
-                                <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
-                                  {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {isSchulung && <FormatIcon className="h-4 w-4 text-yellow-600" />}
+                                  <h4 className="font-medium text-gray-900">{item.name}</h4>
+                                </div>
+                                {item.priority ? (
+                                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
+                                    {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
+                                  </span>
+                                ) : item.points ? (
+                                  <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700">
+                                    {item.points} Punkte
+                                  </span>
+                                ) : null}
                               </div>
                               <p className="mb-3 text-sm text-gray-600 line-clamp-2">{item.description}</p>
 
-                              {/* Assignee */}
-                              {item.assignee && (
+                              {/* Assignee (modules only) */}
+                              {!isSchulung && item.assignee && (
                                 <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
                                   <User className="h-3 w-3" />
                                   <span>{item.assignee.name}</span>
                                 </div>
                               )}
 
-                              {/* Acceptance Status Badge */}
-                              {item.acceptanceStatus === 'ausstehend' && (
+                              {/* Scheduled Date (schulungen) */}
+                              {isSchulung && item.scheduledDate && (
+                                <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-500">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>{formatDate(item.scheduledDate)}</span>
+                                </div>
+                              )}
+
+                              {/* Acceptance Status Badge (modules only) */}
+                              {!isSchulung && item.acceptanceStatus === 'ausstehend' && (
                                 <div className="mb-3 flex items-center gap-1.5 rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700">
                                   <AlertTriangle className="h-3 w-3" />
                                   Bestätigung erforderlich
                                 </div>
                               )}
 
-                              {/* Progress Bar (not for geplant) */}
-                              {status !== 'geplant' && (
+                              {/* Progress Bar (modules only, not for geplant) */}
+                              {!isSchulung && status !== 'geplant' && (
                                 <div className="mb-3">
                                   <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
                                     <span>Fortschritt</span>
@@ -272,8 +406,8 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 </div>
                               )}
 
-                              {/* Live Status for completed modules */}
-                              {item.status === 'abgeschlossen' && (
+                              {/* Live Status for completed modules only */}
+                              {!isSchulung && item.status === 'abgeschlossen' && (
                                 <div className="mb-3">
                                   <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium ${
                                     item.liveStatus === 'pausiert'
@@ -283,6 +417,16 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                       : 'bg-green-100 text-green-700'
                                   }`}>
                                     {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Completed Badge for schulungen */}
+                              {isSchulung && item.status === 'abgeschlossen' && (
+                                <div className="mb-3">
+                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Abgeschlossen
                                   </span>
                                 </div>
                               )}
@@ -316,34 +460,60 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-200">
-                {filteredItems.map((item: any) => {
+                {filteredItems.map((item: RoadmapItem) => {
                   const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
                   const StatusIcon = config.icon
+                  const isSchulung = item.type === 'schulung'
+                  const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
+                  const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                   return (
-                    <Link key={item.id} href={`/roadmap/${item.id}`}>
-                      <div className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer">
-                        <div className={`rounded-lg p-2 ${config.color}`}>
-                          <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
+                    <Link key={item.id} href={linkHref}>
+                      <div className={`flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer ${
+                        isSchulung ? 'border-l-4 border-l-yellow-400' : ''
+                      }`}>
+                        <div className={`rounded-lg p-2 ${isSchulung ? 'bg-yellow-100' : config.color}`}>
+                          {isSchulung ? (
+                            <GraduationCap className="h-5 w-5 text-yellow-600" />
+                          ) : (
+                            <StatusIcon className={`h-5 w-5 ${config.textColor}`} />
+                          )}
                         </div>
 
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-medium text-gray-900">{item.name}</h4>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
-                              {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
-                            </span>
+                            {/* Schulung Badge */}
+                            {isSchulung && (
+                              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 flex items-center gap-1">
+                                <FormatIcon className="h-3 w-3" />
+                                Schulung
+                              </span>
+                            )}
+                            {/* Priority Badge (modules only) */}
+                            {!isSchulung && item.priority && (
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${priorityConfig[item.priority as keyof typeof priorityConfig]?.color || 'bg-gray-100 text-gray-700'}`}>
+                                {priorityConfig[item.priority as keyof typeof priorityConfig]?.label || item.priority}
+                              </span>
+                            )}
+                            {/* Points Badge (schulungen) */}
+                            {isSchulung && item.points && (
+                              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700">
+                                {item.points} Punkte
+                              </span>
+                            )}
                             <Badge variant={item.status === 'abgeschlossen' ? 'success' : item.status === 'in_arbeit' ? 'default' : 'secondary'}>
                               {config.label}
                             </Badge>
-                            {item.acceptanceStatus === 'ausstehend' && (
+                            {/* Acceptance Status (modules only) */}
+                            {!isSchulung && item.acceptanceStatus === 'ausstehend' && (
                               <Badge variant="warning">
                                 <AlertTriangle className="mr-1 h-3 w-3" />
                                 Bestätigung erforderlich
                               </Badge>
                             )}
                             {/* Live Status Badge for completed modules */}
-                            {item.status === 'abgeschlossen' && (
+                            {!isSchulung && item.status === 'abgeschlossen' && (
                               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                 item.liveStatus === 'pausiert'
                                   ? 'bg-yellow-100 text-yellow-700'
@@ -354,20 +524,50 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                 {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
                               </span>
                             )}
+                            {/* Completed Badge for schulungen */}
+                            {isSchulung && item.status === 'abgeschlossen' && (
+                              <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Abgeschlossen
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 text-sm text-gray-600">{item.description}</p>
-                          {item.assignee && (
+                          {/* Assignee (modules only) */}
+                          {!isSchulung && item.assignee && (
                             <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                               <User className="h-3 w-3" />
                               <span>{item.assignee.name}</span>
                             </div>
                           )}
+                          {/* Scheduled Date (schulungen) */}
+                          {isSchulung && item.scheduledDate && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatDate(item.scheduledDate)}</span>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Progress Bar */}
-                        <div className="w-32">
-                          <Progress value={item.progress || 0} size="sm" showLabel />
-                        </div>
+                        {/* Progress Bar (modules only) */}
+                        {!isSchulung && (
+                          <div className="w-32">
+                            <Progress value={item.progress || 0} size="sm" showLabel />
+                          </div>
+                        )}
+
+                        {/* Format Badge (schulungen) */}
+                        {isSchulung && item.format && (
+                          <div className="w-24">
+                            <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                              item.format === 'live' ? 'bg-blue-100 text-blue-700' :
+                              item.format === 'self_learning' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              <FormatIcon className="h-3 w-3" />
+                              {item.format === 'live' ? 'Live' : item.format === 'self_learning' ? 'Self-Learning' : 'Hybrid'}
+                            </span>
+                          </div>
+                        )}
 
                         {item.targetDate && (
                           <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -397,35 +597,54 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
 
               <div className="space-y-6">
                 {roadmapItems
-                  .filter((item: any) => item.targetDate || item.completedDate)
-                  .sort((a: any, b: any) => {
-                    const dateA = new Date(a.completedDate || a.targetDate || '')
-                    const dateB = new Date(b.completedDate || b.targetDate || '')
+                  .filter((item: RoadmapItem) => item.targetDate || item.scheduledDate)
+                  .sort((a: RoadmapItem, b: RoadmapItem) => {
+                    const dateA = new Date(a.scheduledDate || a.targetDate || '')
+                    const dateB = new Date(b.scheduledDate || b.targetDate || '')
                     return dateB.getTime() - dateA.getTime()
                   })
-                  .map((item: any) => {
+                  .map((item: RoadmapItem) => {
                     const config = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.geplant
                     const StatusIcon = config.icon
-                    const date = item.completedDate || item.targetDate
+                    const date = item.scheduledDate || item.targetDate
+                    const isSchulung = item.type === 'schulung'
+                    const linkHref = isSchulung ? `/schulungen/${item.schulungId}` : `/roadmap/${item.id}`
+                    const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                     return (
-                      <Link key={item.id} href={`/roadmap/${item.id}`}>
+                      <Link key={item.id} href={linkHref}>
                         <div className="relative flex gap-4 pl-10 cursor-pointer group">
-                          <div className={`absolute left-2.5 rounded-full p-1 ${config.color}`}>
-                            <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
+                          <div className={`absolute left-2.5 rounded-full p-1 ${isSchulung ? 'bg-yellow-100' : config.color}`}>
+                            {isSchulung ? (
+                              <GraduationCap className="h-3 w-3 text-yellow-600" />
+                            ) : (
+                              <StatusIcon className={`h-3 w-3 ${config.textColor}`} />
+                            )}
                           </div>
-                          <div className="flex-1 rounded-lg border border-gray-200 bg-white p-4 transition-all group-hover:shadow-md group-hover:border-primary-300">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                          <div className={`flex-1 rounded-lg border bg-white p-4 transition-all group-hover:shadow-md ${
+                            isSchulung
+                              ? 'border-l-4 border-l-yellow-400 border-gray-200 group-hover:border-yellow-300'
+                              : 'border-gray-200 group-hover:border-primary-300'
+                          }`}>
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-medium text-gray-900">{item.name}</h4>
-                                {item.acceptanceStatus === 'ausstehend' && (
+                                {/* Schulung Badge */}
+                                {isSchulung && (
+                                  <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                                    <FormatIcon className="h-3 w-3" />
+                                    Schulung
+                                  </span>
+                                )}
+                                {/* Acceptance Status (modules only) */}
+                                {!isSchulung && item.acceptanceStatus === 'ausstehend' && (
                                   <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                                     <AlertTriangle className="h-3 w-3" />
                                     Bestätigung
                                   </span>
                                 )}
                                 {/* Live Status Badge for completed modules */}
-                                {item.status === 'abgeschlossen' && (
+                                {!isSchulung && item.status === 'abgeschlossen' && (
                                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                     item.liveStatus === 'pausiert'
                                       ? 'bg-yellow-100 text-yellow-700'
@@ -436,10 +655,23 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                                     {item.liveStatus === 'pausiert' ? 'Pausiert' : item.liveStatus === 'deaktiviert' ? 'Deaktiviert' : 'Live'}
                                   </span>
                                 )}
-                                {/* Progress percentage (no bar) */}
-                                {item.status !== 'geplant' && (
+                                {/* Completed Badge for schulungen */}
+                                {isSchulung && item.status === 'abgeschlossen' && (
+                                  <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Abgeschlossen
+                                  </span>
+                                )}
+                                {/* Progress percentage (modules only, not for geplant) */}
+                                {!isSchulung && item.status !== 'geplant' && (
                                   <span className="text-xs text-gray-500">
                                     {item.progress || 0}%
+                                  </span>
+                                )}
+                                {/* Points (schulungen) */}
+                                {isSchulung && item.points && (
+                                  <span className="text-xs font-medium text-primary-600">
+                                    {item.points} Punkte
                                   </span>
                                 )}
                               </div>

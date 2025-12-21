@@ -116,6 +116,7 @@ export default function CustomerDetailPage() {
   const [moduleViewMode, setModuleViewMode] = useState<ModuleViewMode>('overview')
   const [showAddSchulungModal, setShowAddSchulungModal] = useState(false)
   const [showAddModuleFromCatalogModal, setShowAddModuleFromCatalogModal] = useState(false)
+  const [roadmapViewMode, setRoadmapViewMode] = useState<'roadmap' | 'kanban'>('roadmap')
 
   // Paket-Bearbeitung State
   const [showEditPackageModal, setShowEditPackageModal] = useState(false)
@@ -224,7 +225,19 @@ export default function CustomerDetailPage() {
           order: m.roadmapOrder || index + 1,
           targetDate: m.targetDate ? new Date(m.targetDate).toISOString().split('T')[0] : undefined,
         }))
-      setRoadmapItems(modulesInRoadmap)
+
+      // Add schulungen that have showInRoadmap !== false
+      const schulungenInRoadmap = initialSchulungAssignments
+        .filter((a: CustomerSchulungAssignment) => a.schulung?.showInRoadmap !== false)
+        .map((a: CustomerSchulungAssignment, index: number) => ({
+          id: `roadmap-schulung-${a.id}`,
+          type: 'schulung' as const,
+          schulungId: a.schulungId || a.schulung?.id,
+          order: modulesInRoadmap.length + index + 1,
+          targetDate: a.scheduledDate ? new Date(a.scheduledDate).toISOString().split('T')[0] : undefined,
+        }))
+
+      setRoadmapItems([...modulesInRoadmap, ...schulungenInRoadmap])
       setSchulungAssignments(initialSchulungAssignments)
     }
   }, [customer, apiModules, initialSchulungAssignments])
@@ -574,13 +587,13 @@ export default function CustomerDetailPage() {
   }
 
   const addModuleToRoadmap = (moduleId: string) => {
-    const module = customerModules.find(m => m.id === moduleId)
+    const foundModule = customerModules.find(m => m.id === moduleId)
     const newItem: CustomerRoadmapItem = {
       id: `cri-new-${Date.now()}`,
       type: 'modul',
       moduleId,
       order: roadmapItems.length + 1,
-      targetDate: module?.targetDate ? new Date(module.targetDate).toISOString().split('T')[0] : undefined,
+      targetDate: foundModule?.targetDate ? new Date(foundModule.targetDate).toISOString().split('T')[0] : undefined,
     }
     setRoadmapItems([...roadmapItems, newItem])
     setShowAddToRoadmapModal(false)
@@ -632,17 +645,32 @@ export default function CustomerDetailPage() {
   }
 
   // Add schulung or serie to customer
-  const addSchulungAssignment = (type: 'schulung' | 'serie', id: string) => {
-    const newAssignment: CustomerSchulungAssignment = {
-      id: `csa-new-${Date.now()}`,
-      customerId,
-      ...(type === 'schulung' ? { schulungId: id } : { serieId: id }),
-      status: 'geplant',
-      scheduledDate: new Date().toISOString().split('T')[0],
-      ...(type === 'serie' ? { completedSchulungIds: [] } : {}),
+  const addSchulungAssignment = async (type: 'schulung' | 'serie', id: string) => {
+    try {
+      const res = await fetch(`/api/customers/${customerId}/schulungen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(type === 'schulung' ? { schulungId: id } : { serieId: id }),
+          status: 'geplant',
+          scheduledDate: new Date().toISOString(),
+        }),
+      })
+
+      if (res.ok) {
+        const newAssignment = await res.json()
+        setSchulungAssignments([...schulungAssignments, newAssignment])
+        setShowAddSchulungModal(false)
+      } else {
+        console.error('Failed to assign schulung')
+        alert('Fehler beim Zuweisen der Schulung')
+        return
+      }
+    } catch (error) {
+      console.error('Error assigning schulung:', error)
+      alert('Fehler beim Zuweisen der Schulung')
+      return
     }
-    setSchulungAssignments([...schulungAssignments, newAssignment])
-    setShowAddSchulungModal(false)
 
     // If serie, add all schulungen to roadmap
     if (type === 'serie') {
@@ -1498,12 +1526,15 @@ export default function CustomerDetailPage() {
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                     assignment.status === 'abgeschlossen'
                                       ? 'bg-green-100 text-green-700'
-                                      : assignment.status === 'in_durchfuehrung'
+                                      : assignment.status === 'durchgefuehrt'
                                         ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-gray-100 text-gray-700'
+                                        : assignment.status === 'in_vorbereitung'
+                                          ? 'bg-yellow-100 text-yellow-700'
+                                          : 'bg-gray-100 text-gray-700'
                                   }`}>
                                     {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
-                                     assignment.status === 'in_durchfuehrung' ? 'In Durchführung' : 'Geplant'}
+                                     assignment.status === 'durchgefuehrt' ? 'Durchgeführt' :
+                                     assignment.status === 'in_vorbereitung' ? 'In Vorbereitung' : 'Geplant'}
                                   </span>
                                 </div>
 
@@ -1563,7 +1594,7 @@ export default function CustomerDetailPage() {
                                                         completedSchulungIds: [...(a.completedSchulungIds || []), schulungId],
                                                         status: (a.completedSchulungIds?.length || 0) + 1 >= serie.schulungIds.length
                                                           ? 'abgeschlossen'
-                                                          : 'in_durchfuehrung',
+                                                          : 'durchgefuehrt',
                                                       }
                                                     : a
                                                 )
@@ -1644,12 +1675,15 @@ export default function CustomerDetailPage() {
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                     assignment.status === 'abgeschlossen'
                                       ? 'bg-green-100 text-green-700'
-                                      : assignment.status === 'in_durchfuehrung'
+                                      : assignment.status === 'durchgefuehrt'
                                         ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-gray-100 text-gray-700'
+                                        : assignment.status === 'in_vorbereitung'
+                                          ? 'bg-yellow-100 text-yellow-700'
+                                          : 'bg-gray-100 text-gray-700'
                                   }`}>
                                     {assignment.status === 'abgeschlossen' ? 'Abgeschlossen' :
-                                     assignment.status === 'in_durchfuehrung' ? 'In Durchführung' : 'Geplant'}
+                                     assignment.status === 'durchgefuehrt' ? 'Durchgeführt' :
+                                     assignment.status === 'in_vorbereitung' ? 'In Vorbereitung' : 'Geplant'}
                                   </span>
                                   {assignment.status !== 'abgeschlossen' && (
                                     <button
@@ -1689,15 +1723,46 @@ export default function CustomerDetailPage() {
                     Definieren Sie die Roadmap, die der Kunde in seinem Dashboard sieht
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowAddToRoadmapModal(true)}
-                  className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Element hinzufügen
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* View Mode Toggle */}
+                  <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+                    <button
+                      onClick={() => setRoadmapViewMode('roadmap')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        roadmapViewMode === 'roadmap'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Map className="h-4 w-4" />
+                      Roadmap
+                    </button>
+                    <button
+                      onClick={() => setRoadmapViewMode('kanban')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        roadmapViewMode === 'kanban'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      Kanban
+                    </button>
+                  </div>
+                  {roadmapViewMode === 'roadmap' && (
+                    <button
+                      onClick={() => setShowAddToRoadmapModal(true)}
+                      className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Element hinzufügen
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {roadmapViewMode === 'roadmap' && (
+              <>
               {/* Roadmap Items List */}
               <div className="bg-white rounded-xl border border-gray-200">
                 {roadmapItems.length === 0 ? (
@@ -1815,7 +1880,7 @@ export default function CustomerDetailPage() {
                         .map(item => item.moduleId)
 
                       // Update modules in roadmap with their order and targetDate
-                      const updatePromises = roadmapItems
+                      const moduleUpdatePromises = roadmapItems
                         .filter(item => item.type === 'modul' && item.moduleId)
                         .map((item, index) =>
                           fetch(`/api/modules/${item.moduleId}`, {
@@ -1833,7 +1898,7 @@ export default function CustomerDetailPage() {
                       const modulesToHide = customerModules.filter(
                         m => !moduleIdsInRoadmap.includes(m.id)
                       )
-                      const hidePromises = modulesToHide.map(m =>
+                      const hideModulePromises = modulesToHide.map(m =>
                         fetch(`/api/modules/${m.id}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
@@ -1843,7 +1908,54 @@ export default function CustomerDetailPage() {
                         })
                       )
 
-                      await Promise.all([...updatePromises, ...hidePromises])
+                      // Handle schulungen in roadmap - update scheduledDate
+                      const schulungIdsInRoadmap = roadmapItems
+                        .filter(item => item.type === 'schulung' && item.schulungId)
+                        .map(item => item.schulungId)
+
+                      const schulungUpdatePromises = roadmapItems
+                        .filter(item => item.type === 'schulung' && item.schulungId)
+                        .map(item => {
+                          // Find the assignment ID for this schulung
+                          const assignment = schulungAssignments.find(
+                            a => a.schulungId === item.schulungId || a.schulung?.id === item.schulungId
+                          )
+                          if (assignment) {
+                            return fetch(`/api/customers/${customerId}/schulungen/${assignment.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                scheduledDate: item.targetDate ? new Date(item.targetDate).toISOString() : null,
+                              }),
+                            })
+                          }
+                          return Promise.resolve()
+                        })
+
+                      // Delete schulung assignments that were removed from roadmap
+                      const schulungenToRemove = schulungAssignments.filter(
+                        a => !schulungIdsInRoadmap.includes(a.schulungId) && !schulungIdsInRoadmap.includes(a.schulung?.id)
+                      )
+                      const deleteSchulungPromises = schulungenToRemove.map(a =>
+                        fetch(`/api/customers/${customerId}/schulungen/${a.id}`, {
+                          method: 'DELETE',
+                        })
+                      )
+
+                      await Promise.all([
+                        ...moduleUpdatePromises,
+                        ...hideModulePromises,
+                        ...schulungUpdatePromises,
+                        ...deleteSchulungPromises,
+                      ])
+
+                      // Update local state to remove deleted schulungen
+                      if (schulungenToRemove.length > 0) {
+                        setSchulungAssignments(prev =>
+                          prev.filter(a => schulungIdsInRoadmap.includes(a.schulungId) || schulungIdsInRoadmap.includes(a.schulung?.id))
+                        )
+                      }
+
                       mutate() // Refresh data
                       alert('Roadmap wurde gespeichert!')
                     } catch (error) {
@@ -1866,6 +1978,138 @@ export default function CustomerDetailPage() {
                   )}
                 </button>
               </div>
+              </>
+              )}
+
+              {/* Kanban View */}
+              {roadmapViewMode === 'kanban' && (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="grid grid-cols-4 gap-4">
+                    {/* Geplant Column */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-gray-300">
+                        <span className="font-medium text-gray-700">Geplant</span>
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
+                          {customerModules.filter(m => m.status === 'geplant').length + schulungAssignments.filter(a => a.status === 'geplant').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {customerModules.filter(m => m.status === 'geplant').map(mod => (
+                          <div key={mod.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Cpu className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{mod.name}</span>
+                            </div>
+                            <span className="text-xs text-blue-600">Modul</span>
+                          </div>
+                        ))}
+                        {schulungAssignments.filter(a => a.status === 'geplant').map(assignment => (
+                          <div key={assignment.id} className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <GraduationCap className="h-4 w-4 text-yellow-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{assignment.schulung?.title}</span>
+                            </div>
+                            <span className="text-xs text-yellow-600">Schulung</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* In Arbeit Column */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-blue-400">
+                        <span className="font-medium text-gray-700">In Arbeit</span>
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
+                          {customerModules.filter(m => m.status === 'in_arbeit').length + schulungAssignments.filter(a => a.status === 'in_vorbereitung').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {customerModules.filter(m => m.status === 'in_arbeit').map(mod => (
+                          <div key={mod.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Cpu className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{mod.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-blue-600">Modul</span>
+                              <span className="text-xs text-gray-500">{mod.progress}%</span>
+                            </div>
+                          </div>
+                        ))}
+                        {schulungAssignments.filter(a => a.status === 'in_vorbereitung').map(assignment => (
+                          <div key={assignment.id} className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <GraduationCap className="h-4 w-4 text-yellow-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{assignment.schulung?.title}</span>
+                            </div>
+                            <span className="text-xs text-yellow-600">Schulung</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Im Test Column */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-purple-400">
+                        <span className="font-medium text-gray-700">Im Test / Durchgeführt</span>
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
+                          {customerModules.filter(m => m.status === 'im_test').length + schulungAssignments.filter(a => a.status === 'durchgefuehrt').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {customerModules.filter(m => m.status === 'im_test').map(mod => (
+                          <div key={mod.id} className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Cpu className="h-4 w-4 text-purple-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{mod.name}</span>
+                            </div>
+                            <span className="text-xs text-purple-600">Modul - Test</span>
+                          </div>
+                        ))}
+                        {schulungAssignments.filter(a => a.status === 'durchgefuehrt').map(assignment => (
+                          <div key={assignment.id} className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <GraduationCap className="h-4 w-4 text-yellow-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{assignment.schulung?.title}</span>
+                            </div>
+                            <span className="text-xs text-yellow-600">Schulung - Durchgeführt</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Abgeschlossen Column */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b-2 border-green-400">
+                        <span className="font-medium text-gray-700">Abgeschlossen</span>
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
+                          {customerModules.filter(m => m.status === 'abgeschlossen').length + schulungAssignments.filter(a => a.status === 'abgeschlossen').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {customerModules.filter(m => m.status === 'abgeschlossen').map(mod => (
+                          <div key={mod.id} className="bg-green-50 rounded-lg p-3 border border-green-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Cpu className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{mod.name}</span>
+                            </div>
+                            <span className="text-xs text-green-600">Modul - Abgeschlossen</span>
+                          </div>
+                        ))}
+                        {schulungAssignments.filter(a => a.status === 'abgeschlossen').map(assignment => (
+                          <div key={assignment.id} className="bg-green-50 rounded-lg p-3 border border-green-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <GraduationCap className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-gray-900 truncate">{assignment.schulung?.title}</span>
+                            </div>
+                            <span className="text-xs text-green-600">Schulung - Abgeschlossen</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2944,12 +3188,12 @@ export default function CustomerDetailPage() {
                   </div>
                   {selectedModule.liveStatus === 'pausiert' && (
                     <p className="mt-2 text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
-                      Das Modul wird dem Kunden als "Pausiert" angezeigt. Die Wartungskosten laufen weiter.
+                      Das Modul wird dem Kunden als &quot;Pausiert&quot; angezeigt. Die Wartungskosten laufen weiter.
                     </p>
                   )}
                   {selectedModule.liveStatus === 'deaktiviert' && (
                     <p className="mt-2 text-xs text-red-700 bg-red-100 p-2 rounded">
-                      Das Modul wird dem Kunden als "Deaktiviert" angezeigt.
+                      Das Modul wird dem Kunden als &quot;Deaktiviert&quot; angezeigt.
                     </p>
                   )}
                 </div>

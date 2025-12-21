@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,167 +33,75 @@ import {
   Clock,
   Loader2,
   Users,
+  Play,
+  Video,
+  Star,
+  Award,
+  ChevronRightIcon,
 } from 'lucide-react'
+import type { CustomerSchulungAssignment, Schulung, SchulungFormat } from '@/types'
+
+type TabType = 'anstehend' | 'abgeschlossen' | 'alle'
+
+const formatLabels: Record<SchulungFormat, { label: string; color: string; icon: typeof Video }> = {
+  live: { label: 'Live-Training', color: 'bg-blue-100 text-blue-700', icon: Users },
+  self_learning: { label: 'Self-Learning', color: 'bg-purple-100 text-purple-700', icon: BookOpen },
+  hybrid: { label: 'Hybrid', color: 'bg-green-100 text-green-700', icon: Play },
+}
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  geplant: { label: 'Geplant', color: 'bg-gray-100 text-gray-700' },
+  in_vorbereitung: { label: 'In Vorbereitung', color: 'bg-yellow-100 text-yellow-700' },
+  durchgefuehrt: { label: 'Durchgeführt', color: 'bg-blue-100 text-blue-700' },
+  abgeschlossen: { label: 'Abgeschlossen', color: 'bg-green-100 text-green-700' },
+}
+
+const categoryLabels: Record<string, string> = {
+  grundlagen: 'Grundlagen',
+  fortgeschritten: 'Fortgeschritten',
+  spezialisiert: 'Spezialisiert',
+}
 
 const schulungsKategorien = [
-  {
-    id: 'A',
-    title: 'KI-Grundlagen & Orientierung',
-    icon: Brain,
-    themen: [
-      'Was ist Künstliche Intelligenz?',
-      'Wie KI „denkt" – Grundlagen verständlich erklärt',
-      'Machine Learning vs. Deep Learning',
-      'Generative KI: Funktionsweise & Einsatzmöglichkeiten',
-      'Überblick: KI-Modelle & Modelltypen',
-      'Welche KI für welche Aufgabe?',
-      'KI-Mythen & realistische Erwartungen',
-    ],
-  },
-  {
-    id: 'B',
-    title: 'KI sicher, rechtlich & verantwortungsvoll einsetzen',
-    icon: Shield,
-    themen: [
-      'Datenschutz & DSGVO im KI-Einsatz',
-      'Umgang mit sensiblen & vertraulichen Daten',
-      'Risiken, Halluzinationen & Fehlentscheidungen',
-      'Bias, Fairness & Verantwortung in KI-Systemen',
-      'KI-Governance & interne Richtlinien',
-      'Mensch-in-der-Schleife: Kontrolle behalten',
-    ],
-  },
-  {
-    id: 'C',
-    title: 'Arbeiten mit KI im Unternehmensalltag',
-    icon: Briefcase,
-    themen: [
-      'Grundlagen der KI-Nutzung im Arbeitsalltag',
-      'KI als Assistenz, nicht als Ersatz',
-      'Prompting-Grundlagen für Business-Anwender',
-      'Fortgeschrittenes Prompting & Iteration',
-      'KI-Ergebnisse prüfen, bewerten & verbessern',
-      'Effizientes Arbeiten mit mehreren KI-Anfragen',
-    ],
-  },
-  {
-    id: 'D',
-    title: 'Inhalte & Wissen mit KI erstellen',
-    icon: FileText,
-    themen: [
-      'Texterstellung mit KI für Business-Zwecke',
-      'Konzepte, Berichte & Zusammenfassungen erstellen',
-      'Präsentationen mit KI entwickeln',
-      'Storytelling & Struktur mit KI',
-      'Bilder, Grafiken & Visuals mit KI erzeugen',
-      'Qualitätssicherung bei KI-generierten Inhalten',
-    ],
-  },
-  {
-    id: 'E',
-    title: 'Analysen & Entscheidungsunterstützung',
-    icon: BarChart3,
-    themen: [
-      'Dokumente & Wissensbestände analysieren',
-      'Vergleiche, Bewertungen & Entscheidungsgrundlagen',
-      'Dateninterpretation mit KI (ohne Data Science)',
-      'Grenzen von KI-Analysen verstehen',
-    ],
-  },
-  {
-    id: 'F',
-    title: 'KI im Marketing, Vertrieb & Fachbereichen',
-    icon: Megaphone,
-    themen: [
-      'KI im Marketing: Content, Kampagnen & Ideen',
-      'KI im Vertrieb: Vorbereitung & Nachbereitung',
-      'KI für Kundenservice & Support',
-      'KI in HR & Recruiting',
-      'KI in Operations & internen Prozessen',
-    ],
-  },
-  {
-    id: 'G',
-    title: 'No-Code, Automatisierung & Workflows',
-    icon: Workflow,
-    themen: [
-      'No-Code & Low-Code mit KI verstehen',
-      'Workflows mit KI automatisieren',
-      'Prozessanalyse für KI-Automatisierung',
-      'Qualität & Stabilität von Automationen sichern',
-    ],
-  },
-  {
-    id: 'H',
-    title: 'Arbeiten mit Unternehmenswissen (RAG)',
-    icon: Database,
-    themen: [
-      'Grundlagen von Retrieval-Augmented Generation (RAG)',
-      'Warum RAG für Unternehmen entscheidend ist',
-      'Euer RAG-System: Aufbau & Architektur',
-      'RAG im Arbeitsalltag effektiv nutzen',
-      'Gute Fragen stellen im RAG-System',
-      'Datenqualität & Wissenspflege für RAG',
-      'Grenzen & Fehlerquellen von RAG-Systemen',
-    ],
-  },
-  {
-    id: 'I',
-    title: 'KI-Lösungen entwickeln & skalieren',
-    icon: Rocket,
-    themen: [
-      'KI-Use-Cases systematisch identifizieren',
-      'Von der Idee zum KI-Pilotprojekt',
-      'Erfolgreiche Einführung von KI im Unternehmen',
-      'Change Management & Akzeptanz bei KI',
-      'KI langfristig skalieren & weiterentwickeln',
-    ],
-  },
-  {
-    id: 'J',
-    title: 'Zukunft & strategische Perspektive',
-    icon: TrendingUp,
-    themen: [
-      'KI-Trends & technologische Entwicklungen',
-      'KI-Kompetenzen der Zukunft',
-      'Innovation & Wettbewerbsvorteile durch KI',
-    ],
-  },
-]
-
-const lernpfade = [
-  {
-    title: 'KI-Basisprogramm',
-    description: 'Für alle Mitarbeitenden',
-    zielgruppe: 'Alle',
-  },
-  {
-    title: 'KI-Advanced',
-    description: 'Für Fachbereiche',
-    zielgruppe: 'Fachbereiche',
-  },
-  {
-    title: 'RAG-Spezialtraining',
-    description: 'Für Wissensarbeit',
-    zielgruppe: 'Wissensarbeiter',
-  },
-  {
-    title: 'KI-Strategie & Governance',
-    description: 'Für Führungskräfte',
-    zielgruppe: 'Management',
-  },
+  { id: 'A', title: 'KI-Grundlagen & Orientierung', icon: Brain, themen: ['Was ist Künstliche Intelligenz?', 'Machine Learning vs. Deep Learning', 'Generative KI: Funktionsweise'] },
+  { id: 'B', title: 'KI sicher & verantwortungsvoll einsetzen', icon: Shield, themen: ['Datenschutz & DSGVO', 'Risiken & Halluzinationen', 'KI-Governance'] },
+  { id: 'C', title: 'Arbeiten mit KI im Alltag', icon: Briefcase, themen: ['Prompting-Grundlagen', 'KI-Ergebnisse prüfen', 'Effizientes Arbeiten'] },
+  { id: 'D', title: 'Inhalte mit KI erstellen', icon: FileText, themen: ['Texterstellung', 'Präsentationen', 'Bilder & Grafiken'] },
+  { id: 'E', title: 'Analysen & Entscheidungen', icon: BarChart3, themen: ['Dokumente analysieren', 'Dateninterpretation', 'Grenzen verstehen'] },
 ]
 
 export default function SchulungenPage() {
+  const router = useRouter()
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('A')
+  const [activeTab, setActiveTab] = useState<TabType>('anstehend')
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [formSubmitted, setFormSubmitted] = useState(false)
+  const [assignments, setAssignments] = useState<CustomerSchulungAssignment[]>([])
   const [formData, setFormData] = useState({
     themen: '',
     nachricht: '',
   })
+
+  // Fetch customer's schulung assignments
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      if (!customerId) return
+
+      try {
+        const res = await fetch(`/api/customers/${customerId}/schulungen`)
+        if (res.ok) {
+          const data = await res.json()
+          setAssignments(data)
+        }
+      } catch (error) {
+        console.error('Error fetching assignments:', error)
+      }
+    }
+
+    fetchAssignments()
+  }, [customerId])
 
   const toggleCategory = (id: string) => {
     setExpandedCategory(expandedCategory === id ? null : id)
@@ -216,10 +125,18 @@ export default function SchulungenPage() {
     )
   }
 
-  const workshops = customer?.workshops || []
-  const schulungAssignments = customer?.schulungAssignments || []
-  const upcomingWorkshops = workshops.filter((w: any) => new Date(w.date) >= new Date())
-  const pastWorkshops = workshops.filter((w: any) => new Date(w.date) < new Date())
+  // Filter assignments based on active tab
+  const filteredAssignments = assignments.filter(assignment => {
+    if (activeTab === 'anstehend') {
+      return assignment.status !== 'abgeschlossen'
+    } else if (activeTab === 'abgeschlossen') {
+      return assignment.status === 'abgeschlossen'
+    }
+    return true
+  })
+
+  const anstehendCount = assignments.filter(a => a.status !== 'abgeschlossen').length
+  const abgeschlossenCount = assignments.filter(a => a.status === 'abgeschlossen').length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -229,101 +146,7 @@ export default function SchulungenPage() {
       />
 
       <div className="p-6">
-        <div className="mx-auto max-w-4xl">
-          {/* Upcoming Workshops */}
-          {upcomingWorkshops.length > 0 && (
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary-600" />
-                  Kommende Schulungen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {upcomingWorkshops.map((workshop: any) => (
-                    <div
-                      key={workshop.id}
-                      className="flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 p-4"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="rounded-lg bg-primary-100 p-3">
-                          <GraduationCap className="h-5 w-5 text-primary-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{workshop.topic}</p>
-                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {formatDate(workshop.date)}
-                            </span>
-                            {workshop.duration && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5" />
-                                {workshop.duration} Min.
-                              </span>
-                            )}
-                            {workshop.participants && (
-                              <span className="flex items-center gap-1">
-                                <Users className="h-3.5 w-3.5" />
-                                {workshop.participants} Teilnehmer
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="default">Geplant</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Past Workshops */}
-          {pastWorkshops.length > 0 && (
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  Abgeschlossene Schulungen
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pastWorkshops.slice(0, 5).map((workshop: any) => (
-                    <div
-                      key={workshop.id}
-                      className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-4"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="rounded-lg bg-green-100 p-3">
-                          <GraduationCap className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{workshop.topic}</p>
-                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {formatDate(workshop.date)}
-                            </span>
-                            {workshop.participants && (
-                              <span className="flex items-center gap-1">
-                                <Users className="h-3.5 w-3.5" />
-                                {workshop.participants} Teilnehmer
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="success">Abgeschlossen</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
+        <div className="mx-auto max-w-5xl">
           {/* Hero Section */}
           <Card className="mb-8 overflow-hidden">
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-8 text-white">
@@ -333,64 +156,208 @@ export default function SchulungenPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold mb-2">
-                    Alle Schulungen individuell auf Ihr Unternehmen zugeschnitten
+                    Ihre Lernplattform für KI-Kompetenz
                   </h2>
-                  <p className="text-primary-100 text-sm leading-relaxed">
-                    Jede Schulung wird speziell für Ihre Anforderungen, Ihre Branche und Ihre
-                    Mitarbeitenden angepasst. Wählen Sie aus unserem umfangreichen Themenkatalog
-                    oder lassen Sie sich ein individuelles Programm zusammenstellen.
+                  <p className="text-primary-100 text-sm leading-relaxed max-w-2xl">
+                    Ob Self-Learning oder Live-Training - wir befähigen Ihr Team zum erfolgreichen
+                    Einsatz von KI. Jede Schulung ist individuell auf Ihr Unternehmen zugeschnitten.
                   </p>
                 </div>
               </div>
             </div>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6 text-sm text-gray-600">
-                  <span className="flex items-center gap-1.5">
-                    <GraduationCap className="h-4 w-4" />
-                    {schulungsKategorien.length} Themenbereiche
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <BookOpen className="h-4 w-4" />
-                    {schulungsKategorien.reduce((acc, cat) => acc + cat.themen.length, 0)}+ Einzelthemen
-                  </span>
-                </div>
-                <Button onClick={() => setShowRequestForm(true)}>
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Individuelle Schulung anfragen
-                </Button>
-              </div>
-            </CardContent>
           </Card>
 
-          {/* Lernpfade */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-base font-medium">Empfohlene Lernpfade</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2">
-                {lernpfade.map((pfad) => (
-                  <div
-                    key={pfad.title}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => setShowRequestForm(true)}
+          {/* Tabs for Assignments */}
+          {assignments.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Ihre Schulungen</h3>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setActiveTab('anstehend')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'anstehend'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">{pfad.title}</p>
-                      <p className="text-sm text-gray-500">{pfad.description}</p>
-                    </div>
-                    <Badge variant="secondary">{pfad.zielgruppe}</Badge>
-                  </div>
-                ))}
+                    Anstehend
+                    {anstehendCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs">
+                        {anstehendCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('abgeschlossen')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'abgeschlossen'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Abgeschlossen
+                    {abgeschlossenCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">
+                        {abgeschlossenCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('alle')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'alle'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Alle
+                  </button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Assignment Cards */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {filteredAssignments.map((assignment) => {
+                  const schulung = assignment.schulung
+                  if (!schulung) return null
+
+                  const format = schulung.format || 'live'
+                  const FormatIcon = formatLabels[format]?.icon || Users
+
+                  return (
+                    <div
+                      key={assignment.id}
+                      onClick={() => router.push(`/schulungen/${schulung.id}`)}
+                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
+                    >
+                      {/* Video Thumbnail */}
+                      <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900">
+                        {schulung.videoThumbnail ? (
+                          <img
+                            src={schulung.videoThumbnail}
+                            alt={schulung.title}
+                            className="absolute inset-0 w-full h-full object-cover opacity-80"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-primary-600/30 to-primary-800/40" />
+                        )}
+
+                        {/* Play Button */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="h-6 w-6 text-primary-600 ml-1" />
+                          </div>
+                        </div>
+
+                        {/* Format Badge */}
+                        <div className="absolute top-3 left-3">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${formatLabels[format]?.color}`}>
+                            <FormatIcon className="h-3.5 w-3.5" />
+                            {formatLabels[format]?.label}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="absolute top-3 right-3">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusLabels[assignment.status]?.color}`}>
+                            {statusLabels[assignment.status]?.label}
+                          </span>
+                        </div>
+
+                        {/* Duration */}
+                        <div className="absolute bottom-3 right-3">
+                          <span className="px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs font-medium flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {schulung.duration}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4">
+                        <h4 className="font-semibold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors">
+                          {schulung.title}
+                        </h4>
+                        <p className="text-sm text-gray-500 line-clamp-2 mb-3">
+                          {schulung.description}
+                        </p>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-sm">
+                            {assignment.scheduledDate && format === 'live' && (
+                              <span className="flex items-center gap-1 text-gray-500">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatDate(assignment.scheduledDate)}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-primary-600 font-medium">
+                              <Award className="h-3.5 w-3.5" />
+                              {schulung.points} Punkte
+                            </span>
+                          </div>
+
+                          {/* Rating (for completed) */}
+                          {assignment.rating && (
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-3.5 w-3.5 ${
+                                    star <= assignment.rating!
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-gray-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Arrow indicator */}
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-end">
+                          <span className="text-sm text-primary-600 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                            Details ansehen
+                            <ChevronRightIcon className="h-4 w-4" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {filteredAssignments.length === 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+                  <GraduationCap className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">
+                    {activeTab === 'anstehend'
+                      ? 'Keine anstehenden Schulungen'
+                      : activeTab === 'abgeschlossen'
+                        ? 'Noch keine abgeschlossenen Schulungen'
+                        : 'Keine Schulungen zugewiesen'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Schulungskatalog */}
-          <Card>
+          <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="text-base font-medium">Vollständiger Themenkatalog</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary-600" />
+                  Schulungskatalog
+                </CardTitle>
+                <Button variant="outline" onClick={() => setShowRequestForm(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Schulung anfragen
+                </Button>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Entdecken Sie unsere Themenbereiche und fordern Sie individuelle Schulungen an.
+              </p>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-100">
@@ -440,9 +407,12 @@ export default function SchulungenPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setShowRequestForm(true)}
+                              onClick={() => {
+                                setFormData({ ...formData, themen: kategorie.title })
+                                setShowRequestForm(true)
+                              }}
                             >
-                              Schulung zu diesem Thema anfragen
+                              Schulung anfragen
                             </Button>
                           </div>
                         </div>
@@ -455,17 +425,16 @@ export default function SchulungenPage() {
           </Card>
 
           {/* CTA */}
-          <div className="mt-8 rounded-xl border-2 border-dashed border-gray-300 bg-white p-8 text-center">
+          <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white p-8 text-center">
             <Building2 className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-4 font-semibold text-gray-900">
-              Sie haben spezielle Anforderungen?
+              Individuelle Anforderungen?
             </h3>
             <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-              Wir entwickeln maßgeschneiderte Schulungsprogramme für Ihr Unternehmen –
-              abgestimmt auf Ihre Branche, Ihre Tools und Ihre Ziele.
+              Wir entwickeln maßgeschneiderte Schulungsprogramme – abgestimmt auf Ihre Branche und Ziele.
             </p>
             <Button className="mt-4" onClick={() => setShowRequestForm(true)}>
-              Individuelle Anfrage stellen
+              Anfrage stellen
             </Button>
           </div>
         </div>
@@ -491,8 +460,8 @@ export default function SchulungenPage() {
               <>
                 <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Individuelle Schulung anfragen</h3>
-                    <p className="text-sm text-gray-500">Wir erstellen ein maßgeschneidertes Angebot</p>
+                    <h3 className="font-semibold text-gray-900">Schulung anfragen</h3>
+                    <p className="text-sm text-gray-500">Wir erstellen ein individuelles Angebot</p>
                   </div>
                   <button
                     onClick={() => setShowRequestForm(false)}
@@ -505,14 +474,14 @@ export default function SchulungenPage() {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gewünschte Themen / Schwerpunkte
+                      Gewünschte Themen
                     </label>
                     <input
                       type="text"
                       value={formData.themen}
                       onChange={(e) => setFormData({ ...formData, themen: e.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="z.B. Prompting, KI im Marketing, RAG"
+                      placeholder="z.B. Prompting, KI im Marketing"
                     />
                   </div>
 
@@ -525,7 +494,7 @@ export default function SchulungenPage() {
                       value={formData.nachricht}
                       onChange={(e) => setFormData({ ...formData, nachricht: e.target.value })}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="Beschreiben Sie Ihre spezifischen Anforderungen, Vorkenntnisse des Teams, gewünschtes Format (Online/Präsenz), etc."
+                      placeholder="Format (Online/Präsenz), Teilnehmer, Vorkenntnisse..."
                     />
                   </div>
 
@@ -540,7 +509,7 @@ export default function SchulungenPage() {
                     </Button>
                     <Button type="submit" className="flex-1">
                       <Send className="mr-2 h-4 w-4" />
-                      Anfrage senden
+                      Absenden
                     </Button>
                   </div>
                 </form>

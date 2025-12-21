@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AdminHeader } from '@/components/admin/admin-header'
-import { schulungskatalog, schulungSerien, getSchulungById } from '@/lib/admin-mock-data'
+import { schulungskatalog, schulungSerien } from '@/lib/admin-mock-data'
 import { Schulung, SchulungSerie } from '@/types'
 import {
   Search,
@@ -16,12 +16,23 @@ import {
   X,
   Layers,
   ChevronRight,
+  Users,
+  Video,
+  BookOpen,
+  Play,
+  Loader2,
 } from 'lucide-react'
 
 const categoryConfig: Record<string, { label: string; color: string }> = {
   grundlagen: { label: 'Grundlagen', color: 'bg-green-100 text-green-700' },
   fortgeschritten: { label: 'Fortgeschritten', color: 'bg-blue-100 text-blue-700' },
   spezialisiert: { label: 'Spezialisiert', color: 'bg-purple-100 text-purple-700' },
+}
+
+const formatConfig: Record<string, { label: string; color: string; icon: typeof Video }> = {
+  live: { label: 'Live', color: 'bg-blue-100 text-blue-700', icon: Users },
+  self_learning: { label: 'Self-Learning', color: 'bg-purple-100 text-purple-700', icon: BookOpen },
+  hybrid: { label: 'Hybrid', color: 'bg-green-100 text-green-700', icon: Play },
 }
 
 type ViewMode = 'schulungen' | 'serien'
@@ -32,8 +43,32 @@ export default function SchulungskatalogPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('alle')
   const [showNewSchulungModal, setShowNewSchulungModal] = useState(false)
   const [showNewSerieModal, setShowNewSerieModal] = useState(false)
-  const [schulungen, setSchulungen] = useState<Schulung[]>(schulungskatalog)
-  const [serien, setSerien] = useState<SchulungSerie[]>(schulungSerien)
+  const [schulungen, setSchulungen] = useState<Schulung[]>([])
+  const [serien, setSerien] = useState<SchulungSerie[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch schulungen and serien from database
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true)
+      try {
+        const res = await fetch('/api/schulungen')
+        if (res.ok) {
+          const data = await res.json()
+          setSchulungen(data.schulungen || [])
+          setSerien(data.serien || [])
+        }
+      } catch (error) {
+        console.error('Error fetching schulungen:', error)
+        // Fallback to mock data
+        setSchulungen(schulungskatalog)
+        setSerien(schulungSerien)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   // Form state for new Schulung
   const [newSchulung, setNewSchulung] = useState({
@@ -64,25 +99,44 @@ export default function SchulungskatalogPage() {
     serie.description.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleAddSchulung = () => {
-    const newSchulungItem: Schulung = {
-      id: `sch-new-${Date.now()}`,
-      title: newSchulung.title,
-      description: newSchulung.description,
-      duration: newSchulung.duration,
-      points: newSchulung.points,
-      category: newSchulung.category,
-      isCustom: true,
+  const handleAddSchulung = async () => {
+    try {
+      const res = await fetch('/api/schulungen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newSchulung.title,
+          description: newSchulung.description,
+          duration: newSchulung.duration,
+          points: newSchulung.points,
+          category: newSchulung.category,
+          isCustom: true,
+          learningGoals: [],
+          outcomes: [],
+          format: 'live',
+          showInRoadmap: true,
+        }),
+      })
+
+      if (res.ok) {
+        const createdSchulung = await res.json()
+        setSchulungen([...schulungen, createdSchulung])
+        setShowNewSchulungModal(false)
+        setNewSchulung({
+          title: '',
+          description: '',
+          duration: '2 Stunden',
+          points: 10,
+          category: 'grundlagen',
+        })
+      } else {
+        console.error('Failed to create schulung')
+        alert('Fehler beim Erstellen der Schulung')
+      }
+    } catch (error) {
+      console.error('Error creating schulung:', error)
+      alert('Fehler beim Erstellen der Schulung')
     }
-    setSchulungen([...schulungen, newSchulungItem])
-    setShowNewSchulungModal(false)
-    setNewSchulung({
-      title: '',
-      description: '',
-      duration: '2 Stunden',
-      points: 10,
-      category: 'grundlagen',
-    })
   }
 
   const handleAddSerie = () => {
@@ -109,9 +163,22 @@ export default function SchulungskatalogPage() {
     })
   }
 
-  const handleDeleteSchulung = (id: string) => {
+  const handleDeleteSchulung = async (id: string) => {
     if (confirm('Möchten Sie diese Schulung wirklich löschen?')) {
-      setSchulungen(schulungen.filter(s => s.id !== id))
+      try {
+        const res = await fetch(`/api/schulungen/${id}`, {
+          method: 'DELETE',
+        })
+
+        if (res.ok) {
+          setSchulungen(schulungen.filter(s => s.id !== id))
+        } else {
+          alert('Fehler beim Löschen der Schulung')
+        }
+      } catch (error) {
+        console.error('Error deleting schulung:', error)
+        alert('Fehler beim Löschen der Schulung')
+      }
     }
   }
 
@@ -129,76 +196,85 @@ export default function SchulungskatalogPage() {
       />
 
       <div className="flex-1 overflow-auto p-6">
-        {/* View Mode Toggle */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('schulungen')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'schulungen'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <GraduationCap className="h-4 w-4" />
-              Schulungen
-            </button>
-            <button
-              onClick={() => setViewMode('serien')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'serien'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Layers className="h-4 w-4" />
-              Serien
-            </button>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
           </div>
-        </div>
+        )}
 
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder={viewMode === 'schulungen' ? 'Schulungen suchen...' : 'Serien suchen...'}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-
-          {/* Category Filter (only for Schulungen) */}
-          {viewMode === 'schulungen' && (
-            <div className="relative">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-4 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="alle">Alle Kategorien</option>
-                {Object.entries(categoryConfig).map(([key, config]) => (
-                  <option key={key} value={key}>{config.label}</option>
-                ))}
-              </select>
-              <Filter className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        {!isLoading && (
+          <>
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('schulungen')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'schulungen'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  Schulungen
+                </button>
+                <button
+                  onClick={() => setViewMode('serien')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'serien'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Layers className="h-4 w-4" />
+                  Serien
+                </button>
+              </div>
             </div>
-          )}
 
-          {/* Add Button */}
-          <button
-            onClick={() => viewMode === 'schulungen' ? setShowNewSchulungModal(true) : setShowNewSerieModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {viewMode === 'schulungen' ? 'Neue Schulung' : 'Neue Serie'}
-          </button>
-        </div>
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder={viewMode === 'schulungen' ? 'Schulungen suchen...' : 'Serien suchen...'}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
 
-        {/* Schulungen Grid */}
+            {/* Category Filter (only for Schulungen) */}
+            {viewMode === 'schulungen' && (
+              <div className="relative">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="appearance-none rounded-lg border border-gray-200 bg-white py-2 pl-4 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="alle">Alle Kategorien</option>
+                  {Object.entries(categoryConfig).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+                <Filter className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+            )}
+
+            {/* Add Button */}
+            <button
+              onClick={() => viewMode === 'schulungen' ? setShowNewSchulungModal(true) : setShowNewSerieModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {viewMode === 'schulungen' ? 'Neue Schulung' : 'Neue Serie'}
+            </button>
+            </div>
+
+            {/* Schulungen Grid */}
         {viewMode === 'schulungen' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSchulungen.map((schulung) => (
@@ -333,6 +409,8 @@ export default function SchulungskatalogPage() {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
 

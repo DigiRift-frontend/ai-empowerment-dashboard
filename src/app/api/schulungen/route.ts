@@ -6,6 +6,19 @@ export async function GET() {
   try {
     const [schulungen, serien] = await Promise.all([
       prisma.schulung.findMany({
+        include: {
+          trainer: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              avatarUrl: true,
+            },
+          },
+          materials: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
         orderBy: [
           { category: 'asc' },
           { title: 'asc' },
@@ -48,6 +61,25 @@ export async function POST(request: Request) {
         points: body.points,
         category: body.category,
         isCustom: body.isCustom || false,
+        learningGoals: body.learningGoals || [],
+        outcomes: body.outcomes || [],
+        format: body.format || 'live',
+        videoUrl: body.videoUrl || null,
+        videoThumbnail: body.videoThumbnail || null,
+        trainerId: body.trainerId || null,
+        showInRoadmap: body.showInRoadmap ?? true,
+        roadmapOrder: body.roadmapOrder || null,
+      },
+      include: {
+        trainer: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            avatarUrl: true,
+          },
+        },
+        materials: true,
       },
     })
 

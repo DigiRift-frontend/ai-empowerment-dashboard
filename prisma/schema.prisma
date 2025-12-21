@@ -73,8 +73,15 @@ enum SchulungCategory {
 
 enum SchulungAssignmentStatus {
   geplant
-  in_durchfuehrung
+  in_vorbereitung
+  durchgefuehrt
   abgeschlossen
+}
+
+enum SchulungFormat {
+  live
+  self_learning
+  hybrid
 }
 
 enum WorkshopStatus {
@@ -243,7 +250,8 @@ model TeamMember {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedModules Module[]
+  assignedModules   Module[]
+  trainedSchulungen Schulung[]
 }
 
 // Modul (kombiniert Module + RoadmapItem)
@@ -383,13 +391,46 @@ model Schulung {
   category    SchulungCategory
   isCustom    Boolean          @default(false)
 
+  // Lernziele & Outcomes
+  learningGoals String[]  // Was Sie lernen werden
+  outcomes      String[]  // Wozu befähigen wir Ihr Team
+
+  // Format & Typ
+  format SchulungFormat @default(live)
+
+  // Media
+  videoUrl       String?
+  videoThumbnail String?
+
+  // Trainer (für Live)
+  trainerId String?
+  trainer   TeamMember? @relation(fields: [trainerId], references: [id])
+
+  // Roadmap-Integration
+  showInRoadmap Boolean @default(true)
+  roadmapOrder  Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
+  materials    SchulungMaterial[]
   serieItems   SchulungSerieItem[]
   assignments  CustomerSchulungAssignment[]
   roadmapItems CustomerRoadmapItem[]
+}
+
+// Schulungsmaterial
+model SchulungMaterial {
+  id        String @id @default(cuid())
+  title     String
+  fileUrl   String
+  fileType  String // pdf, pptx, docx, etc.
+
+  schulungId String
+  schulung   Schulung @relation(fields: [schulungId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 }
 
 // Schulung Serie
@@ -428,6 +469,15 @@ model CustomerSchulungAssignment {
   scheduledDate         DateTime?
   completedDate         DateTime?
   completedSchulungIds  String[]                 // Für Serien
+
+  // Feedback
+  rating       Int?      // 1-5 Sterne
+  feedback     String?   // Freitext-Feedback
+  feedbackDate DateTime?
+
+  // Teilnehmer
+  participants     String[] // Liste der Teilnehmer-Namen
+  participantCount Int?
 
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)

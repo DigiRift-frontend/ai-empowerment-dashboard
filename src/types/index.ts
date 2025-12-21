@@ -162,6 +162,9 @@ export interface ModuleHistoryEntry {
   pointsUsed?: number
 }
 
+// Schulungsformat
+export type SchulungFormat = 'live' | 'self_learning' | 'hybrid'
+
 // Schulungskatalog
 export interface Schulung {
   id: string
@@ -171,6 +174,43 @@ export interface Schulung {
   points: number // Punktekosten
   category: 'grundlagen' | 'fortgeschritten' | 'spezialisiert'
   isCustom?: boolean // Selbst definierte Schulung
+
+  // Lernziele & Outcomes
+  learningGoals: string[] // Was Sie lernen werden
+  outcomes: string[] // Wozu befähigen wir Ihr Team
+
+  // Format
+  format: SchulungFormat
+
+  // Media
+  videoUrl?: string
+  videoThumbnail?: string
+
+  // Trainer
+  trainerId?: string
+  trainer?: {
+    id: string
+    name: string
+    role: string
+    avatarUrl?: string
+    calendlyUrl?: string
+  }
+
+  // Materialien
+  materials?: SchulungMaterial[]
+
+  // Roadmap
+  showInRoadmap: boolean
+  roadmapOrder?: number
+}
+
+// Schulungsmaterial
+export interface SchulungMaterial {
+  id: string
+  title: string
+  fileUrl: string
+  fileType: string // pdf, pptx, docx, etc.
+  createdAt: string
 }
 
 // Kunden-Roadmap (was der Kunde sieht)
@@ -202,16 +242,32 @@ export interface SchulungSerie {
   updatedAt: string
 }
 
+// Schulungs-Zuweisungsstatus
+export type SchulungAssignmentStatus = 'geplant' | 'in_vorbereitung' | 'durchgefuehrt' | 'abgeschlossen'
+
 // Kunden-Schulung-Zuweisung
 export interface CustomerSchulungAssignment {
   id: string
   customerId: string
   schulungId?: string // Einzelne Schulung
   serieId?: string // Oder Serie
-  status: 'geplant' | 'in_durchfuehrung' | 'abgeschlossen'
+  status: SchulungAssignmentStatus
   scheduledDate?: string
   completedDate?: string
   completedSchulungIds?: string[] // Für Serien: welche Schulungen sind bereits abgeschlossen
+
+  // Feedback
+  rating?: number // 1-5 Sterne
+  feedback?: string // Freitext-Feedback
+  feedbackDate?: string
+
+  // Teilnehmer
+  participants?: string[] // Liste der Teilnehmer-Namen
+  participantCount?: number
+
+  // Resolved relations
+  schulung?: Schulung
+  serie?: SchulungSerie
 }
 
 // Modul Template (für den Katalog)

@@ -330,6 +330,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '2 Stunden',
     points: 8,
     category: 'grundlagen',
+    learningGoals: [
+      'Grundlegende KI-Konzepte verstehen',
+      'Unterschied zwischen ML, Deep Learning und GenAI erkennen',
+      'Potenziale und Grenzen von KI einschätzen',
+    ],
+    outcomes: [
+      'Fundierte Entscheidungen über KI-Investitionen treffen',
+      'KI-Projekte besser evaluieren und priorisieren',
+      'Mit technischen Teams auf Augenhöhe kommunizieren',
+    ],
+    format: 'live',
+    showInRoadmap: true,
   },
   {
     id: 'sch2',
@@ -338,6 +350,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '3 Stunden',
     points: 12,
     category: 'grundlagen',
+    learningGoals: [
+      'Aufbau effektiver Prompts verstehen',
+      'Verschiedene Prompt-Techniken anwenden',
+      'Häufige Fehler vermeiden',
+    ],
+    outcomes: [
+      'Bessere Ergebnisse aus KI-Tools erhalten',
+      'Zeit bei der Arbeit mit LLMs sparen',
+      'Komplexe Aufgaben in Prompts strukturieren',
+    ],
+    format: 'hybrid',
+    showInRoadmap: true,
   },
   {
     id: 'sch3',
@@ -346,6 +370,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '4 Stunden',
     points: 15,
     category: 'grundlagen',
+    learningGoals: [
+      'Verschiedene KI-Tools kennenlernen',
+      'Use Cases für den Büroalltag identifizieren',
+      'Datenschutz und Sicherheit beachten',
+    ],
+    outcomes: [
+      'Routineaufgaben automatisieren',
+      'E-Mails und Texte schneller erstellen',
+      'Recherche und Analyse beschleunigen',
+    ],
+    format: 'self_learning',
+    showInRoadmap: true,
   },
   {
     id: 'sch4',
@@ -354,6 +390,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '2 Stunden',
     points: 10,
     category: 'fortgeschritten',
+    learningGoals: [
+      'RAG-Architektur verstehen',
+      'Vor- und Nachteile von RAG erkennen',
+      'Einsatzszenarien identifizieren',
+    ],
+    outcomes: [
+      'RAG-Projekte planen und evaluieren',
+      'Anforderungen an Datenquellen definieren',
+      'Mit Entwicklern über RAG kommunizieren',
+    ],
+    format: 'live',
+    showInRoadmap: true,
   },
   {
     id: 'sch5',
@@ -362,6 +410,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '1 Tag',
     points: 30,
     category: 'spezialisiert',
+    learningGoals: [
+      'Strategische KI-Roadmap entwickeln',
+      'Business Cases für KI erstellen',
+      'Change Management für KI planen',
+    ],
+    outcomes: [
+      'Klare KI-Vision für das Unternehmen',
+      'Priorisierte Maßnahmenliste',
+      'Ressourcen- und Zeitplanung',
+    ],
+    format: 'live',
+    showInRoadmap: true,
   },
   {
     id: 'sch6',
@@ -370,6 +430,18 @@ export const schulungskatalog: Schulung[] = [
     duration: '3 Stunden',
     points: 12,
     category: 'spezialisiert',
+    learningGoals: [
+      'Chatbot-Funktionen verstehen',
+      'Eskalationsprozesse kennen',
+      'Qualitätskontrolle durchführen',
+    ],
+    outcomes: [
+      'Nahtlose Zusammenarbeit mit KI-Chatbot',
+      'Schnellere Problemlösung',
+      'Bessere Kundenzufriedenheit',
+    ],
+    format: 'hybrid',
+    showInRoadmap: true,
   },
 ]
 
@@ -754,7 +826,7 @@ export const customerSchulungAssignments: Record<string, CustomerSchulungAssignm
       id: 'csa1',
       customerId: '1',
       serieId: 'ser1',
-      status: 'in_durchfuehrung',
+      status: 'durchgefuehrt',
       scheduledDate: '2024-07-01',
       completedSchulungIds: ['sch1', 'sch2'],
     },
