@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,7 +27,12 @@ import {
   BookOpen,
   Download,
   Settings,
+  Clock,
+  CheckCircle2,
+  Users,
+  Award,
 } from 'lucide-react'
+import type { CustomerSchulungAssignment } from '@/types'
 
 // Helper to get display status based on status + liveStatus
 const getModuleDisplayStatus = (mod: any) => {
@@ -53,6 +58,69 @@ export default function DashboardPage() {
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
   const [showPackageDetails, setShowPackageDetails] = useState(false)
+  const [schulungAssignments, setSchulungAssignments] = useState<CustomerSchulungAssignment[]>([])
+
+  // Fetch schulung assignments
+  useEffect(() => {
+    const fetchSchulungen = async () => {
+      if (!customerId) return
+      try {
+        const res = await fetch(`/api/customers/${customerId}/schulungen`)
+        if (res.ok) {
+          const data = await res.json()
+          setSchulungAssignments(data)
+        }
+      } catch (error) {
+        console.error('Error fetching schulungen:', error)
+      }
+    }
+    fetchSchulungen()
+  }, [customerId])
+
+  // Process schulungen into flat list (including series items)
+  const schulungenStats = useMemo(() => {
+    const allSchulungen: any[] = []
+
+    schulungAssignments.forEach((assignment) => {
+      // Individual schulung
+      if (assignment.schulung && !assignment.serieId) {
+        allSchulungen.push({
+          id: assignment.id,
+          title: assignment.schulung.title,
+          status: assignment.status,
+          isCompleted: assignment.status === 'abgeschlossen' || assignment.status === 'durchgefuehrt',
+          scheduledDate: assignment.scheduledDate,
+          format: assignment.schulung.format || 'live',
+        })
+      }
+      // Series - expand into individual schulungen
+      else if (assignment.serie?.schulungItems) {
+        const excludedIds = assignment.excludedSchulungIds || []
+        const completedIds = assignment.completedSchulungIds || []
+
+        assignment.serie.schulungItems.forEach((item: any) => {
+          if (!item.schulung) return
+          if (excludedIds.includes(item.schulung.id)) return
+
+          allSchulungen.push({
+            id: `${assignment.id}-${item.schulung.id}`,
+            title: item.schulung.title,
+            status: completedIds.includes(item.schulung.id) ? 'abgeschlossen' : assignment.status,
+            isCompleted: completedIds.includes(item.schulung.id),
+            scheduledDate: assignment.scheduledDate,
+            format: item.schulung.format || 'live',
+            seriesTitle: assignment.serie?.title,
+          })
+        })
+      }
+    })
+
+    const completed = allSchulungen.filter(s => s.isCompleted)
+    const upcoming = allSchulungen.filter(s => !s.isCompleted)
+    const total = allSchulungen.length
+
+    return { allSchulungen, completed, upcoming, total }
+  }, [schulungAssignments])
 
   if (isLoading || !customer) {
     return (
@@ -292,7 +360,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-medium flex items-center gap-2">
                   <GraduationCap className="h-4 w-4 text-gray-400" />
-                  KI-Schulungen für Ihr Team
+                  KI-Schulungen
                 </CardTitle>
                 <Link href="/schulungen">
                   <Button variant="ghost" size="sm">
@@ -303,38 +371,129 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Link href="/schulungen" className="block">
-                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
-                    <p className="text-2xl font-bold text-gray-900">8</p>
-                    <p className="text-sm text-gray-500">Verfügbare Kurse</p>
+              {/* Progress bar if there are schulungen */}
+              {schulungenStats.total > 0 && (
+                <div className="mb-4 p-3 rounded-lg bg-gray-50">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">Team-Fortschritt</span>
+                    <span className="font-medium text-gray-900">
+                      {schulungenStats.completed.length} / {schulungenStats.total} abgeschlossen
+                    </span>
                   </div>
-                </Link>
-                <Link href="/schulungen" className="block">
-                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors text-center">
-                    <p className="text-2xl font-bold text-green-600">
-                      {workshops.filter((w: any) => w.status === 'abgeschlossen').length}
-                    </p>
-                    <p className="text-sm text-gray-500">Abgeschlossen</p>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all"
+                      style={{ width: `${schulungenStats.total > 0 ? (schulungenStats.completed.length / schulungenStats.total) * 100 : 0}%` }}
+                    />
                   </div>
-                </Link>
-                {upcomingWorkshop ? (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition-colors">
-                      <p className="text-sm font-medium text-gray-900">{upcomingWorkshop.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(upcomingWorkshop.date).toLocaleDateString('de-DE')}
+                </div>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {/* Anstehende Schulungen */}
+                <Link href="/schulungen?tab=anstehend" className="block">
+                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-primary-500" />
+                      <span className="text-xs font-medium text-gray-500 uppercase">Anstehend</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{schulungenStats.upcoming.length}</p>
+                    {schulungenStats.upcoming.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        Nächste: {schulungenStats.upcoming[0]?.title}
                       </p>
+                    )}
+                  </div>
+                </Link>
+
+                {/* Abgeschlossene Schulungen */}
+                <Link href="/schulungen?tab=abgeschlossen" className="block">
+                  <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 hover:bg-green-50 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span className="text-xs font-medium text-gray-500 uppercase">Abgeschlossen</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">{schulungenStats.completed.length}</p>
+                    {schulungenStats.completed.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Zuletzt: {schulungenStats.completed[schulungenStats.completed.length - 1]?.title?.substring(0, 20)}...
+                      </p>
+                    )}
+                  </div>
+                </Link>
+
+                {/* Nächste Schulung oder CTA */}
+                {schulungenStats.upcoming.length > 0 ? (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-primary-200 bg-primary-50/50 p-4 hover:bg-primary-50 transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-primary-500" />
+                        <span className="text-xs font-medium text-gray-500 uppercase">Nächster Kurs</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                        {schulungenStats.upcoming[0]?.title}
+                      </p>
+                      {schulungenStats.upcoming[0]?.scheduledDate && (
+                        <p className="text-xs text-primary-600 mt-1 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(schulungenStats.upcoming[0].scheduledDate)}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                ) : schulungenStats.total === 0 ? (
+                  <Link href="/schulungen" className="block">
+                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors h-full flex flex-col items-center justify-center">
+                      <GraduationCap className="h-6 w-6 text-gray-400 mb-1" />
+                      <p className="text-sm text-gray-500">Schulungen entdecken</p>
                     </div>
                   </Link>
                 ) : (
-                  <Link href="/schulungen" className="block">
-                    <div className="rounded-lg border border-dashed border-gray-300 p-4 hover:bg-gray-50 transition-colors text-center">
-                      <p className="text-sm text-gray-500">Schulung buchen</p>
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Award className="h-4 w-4 text-green-500" />
+                      <span className="text-xs font-medium text-green-700 uppercase">Geschafft!</span>
                     </div>
-                  </Link>
+                    <p className="text-sm text-green-700">Alle Schulungen abgeschlossen</p>
+                  </div>
                 )}
               </div>
+
+              {/* Liste der anstehenden Schulungen */}
+              {schulungenStats.upcoming.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 uppercase mb-2">Ihre nächsten Schulungen</p>
+                  <div className="space-y-2">
+                    {schulungenStats.upcoming.slice(0, 3).map((s: any) => (
+                      <Link key={s.id} href="/schulungen" className="block">
+                        <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                              <GraduationCap className="h-4 w-4 text-primary-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 line-clamp-1">{s.title}</p>
+                              {s.seriesTitle && (
+                                <p className="text-xs text-gray-400">{s.seriesTitle}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {s.status === 'geplant' ? 'Geplant' : s.status === 'in_vorbereitung' ? 'In Vorbereitung' : s.status}
+                          </Badge>
+                        </div>
+                      </Link>
+                    ))}
+                    {schulungenStats.upcoming.length > 3 && (
+                      <Link href="/schulungen" className="block">
+                        <p className="text-xs text-primary-600 text-center py-1 hover:underline">
+                          + {schulungenStats.upcoming.length - 3} weitere anstehende Schulungen
+                        </p>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
