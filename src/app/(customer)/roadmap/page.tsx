@@ -28,6 +28,7 @@ import {
   Play,
   BookOpen,
   Users,
+  Map,
 } from 'lucide-react'
 import { ModuleStatus, CustomerSchulungAssignment, SchulungFormat } from '@/types'
 
@@ -62,7 +63,8 @@ const formatLabels: Record<SchulungFormat, { icon: typeof Users }> = {
 export default function RoadmapPage() {
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'kanban'>('roadmap')
+  const [listViewMode, setListViewMode] = useState<'timeline' | 'list'>('timeline')
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'hoch' | 'mittel' | 'niedrig'>('all')
   const [schulungAssignments, setSchulungAssignments] = useState<CustomerSchulungAssignment[]>([])
 
@@ -259,7 +261,41 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
         )}
 
 
-        {/* Controls */}
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+              <button
+                onClick={() => setActiveTab('roadmap')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'roadmap'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Map className="h-4 w-4" />
+                Roadmap
+              </button>
+              <button
+                onClick={() => setActiveTab('kanban')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'kanban'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Kanban
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={exportRoadmapPDF}>
+              <Download className="mr-1 h-4 w-4" />
+              Roadmap exportieren
+            </Button>
+          </div>
+        </div>
+
+        {/* Controls - shown on both tabs */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-gray-400" />
@@ -276,32 +312,31 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={exportRoadmapPDF}>
-              <Download className="mr-1 h-4 w-4" />
-              Roadmap exportieren
-            </Button>
-            <Button
-              variant={viewMode === 'kanban' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('kanban')}
-            >
-              <LayoutGrid className="mr-1 h-4 w-4" />
-              Kanban
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="mr-1 h-4 w-4" />
-              Liste
-            </Button>
-          </div>
+          {/* View mode toggle for Roadmap tab */}
+          {activeTab === 'roadmap' && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={listViewMode === 'timeline' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setListViewMode('timeline')}
+              >
+                <Target className="mr-1 h-4 w-4" />
+                Timeline
+              </Button>
+              <Button
+                variant={listViewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setListViewMode('list')}
+              >
+                <List className="mr-1 h-4 w-4" />
+                Liste
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Kanban View */}
-        {viewMode === 'kanban' && (
+        {activeTab === 'kanban' && (
           <div className="grid gap-6 lg:grid-cols-4">
             {(['geplant', 'in_arbeit', 'im_test', 'abgeschlossen'] as ModuleStatus[]).map((status) => {
               const config = statusConfig[status]
@@ -455,8 +490,8 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
           </div>
         )}
 
-        {/* List View */}
-        {viewMode === 'list' && (
+        {/* List View - shown in Roadmap tab when list mode selected */}
+        {activeTab === 'roadmap' && listViewMode === 'list' && (
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-gray-200">
@@ -586,8 +621,9 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
           </Card>
         )}
 
-        {/* Timeline */}
-        <Card className="mt-6">
+        {/* Timeline - shown in Roadmap tab when timeline mode selected */}
+        {activeTab === 'roadmap' && listViewMode === 'timeline' && (
+        <Card className="mt-0">
           <CardHeader>
             <CardTitle>Timeline</CardTitle>
           </CardHeader>
@@ -687,6 +723,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   )
