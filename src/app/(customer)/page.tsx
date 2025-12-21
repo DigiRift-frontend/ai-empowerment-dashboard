@@ -422,15 +422,15 @@ export default function DashboardPage() {
                   </div>
                 </Link>
 
-                {/* Verfügbare Kurse */}
-                <Link href="/schulungen" className="block">
-                  <div className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors">
+                {/* Schulungskatalog */}
+                <Link href="/schulungen/katalog" className="block">
+                  <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 hover:bg-primary-100 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <BookOpen className="h-4 w-4 text-primary-500" />
-                      <span className="text-xs font-medium text-gray-500 uppercase">Kursangebot</span>
+                      <BookOpen className="h-4 w-4 text-primary-600" />
+                      <span className="text-xs font-medium text-primary-600 uppercase">Katalog</span>
                     </div>
-                    <p className="text-2xl font-bold text-primary-600">{schulungenStats.total}</p>
-                    <p className="text-xs text-gray-500 mt-1">Kurse für Ihr Team</p>
+                    <p className="text-sm font-medium text-gray-900">Kurskatalog entdecken</p>
+                    <p className="text-xs text-gray-500 mt-1">Alle verfügbaren Schulungen</p>
                   </div>
                 </Link>
               </div>

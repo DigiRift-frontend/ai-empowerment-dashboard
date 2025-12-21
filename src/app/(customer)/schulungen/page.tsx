@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,23 +12,9 @@ import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/utils'
 import {
   GraduationCap,
-  ChevronDown,
   ChevronRight,
   Sparkles,
-  Building2,
-  Send,
-  X,
   CheckCircle2,
-  Brain,
-  Shield,
-  Briefcase,
-  FileText,
-  BarChart3,
-  Megaphone,
-  Workflow,
-  Database,
-  Rocket,
-  TrendingUp,
   BookOpen,
   Calendar,
   Clock,
@@ -37,10 +24,11 @@ import {
   Video,
   Star,
   Award,
-  ChevronRightIcon,
   Target,
   Trophy,
   Flame,
+  ArrowRight,
+  Layers,
 } from 'lucide-react'
 import type { CustomerSchulungAssignment, Schulung, SchulungFormat } from '@/types'
 
@@ -87,27 +75,12 @@ const categoryLabels: Record<string, string> = {
   spezialisiert: 'Spezialisiert',
 }
 
-const schulungsKategorien = [
-  { id: 'A', title: 'KI-Grundlagen & Orientierung', icon: Brain, themen: ['Was ist Künstliche Intelligenz?', 'Machine Learning vs. Deep Learning', 'Generative KI: Funktionsweise'] },
-  { id: 'B', title: 'KI sicher & verantwortungsvoll einsetzen', icon: Shield, themen: ['Datenschutz & DSGVO', 'Risiken & Halluzinationen', 'KI-Governance'] },
-  { id: 'C', title: 'Arbeiten mit KI im Alltag', icon: Briefcase, themen: ['Prompting-Grundlagen', 'KI-Ergebnisse prüfen', 'Effizientes Arbeiten'] },
-  { id: 'D', title: 'Inhalte mit KI erstellen', icon: FileText, themen: ['Texterstellung', 'Präsentationen', 'Bilder & Grafiken'] },
-  { id: 'E', title: 'Analysen & Entscheidungen', icon: BarChart3, themen: ['Dokumente analysieren', 'Dateninterpretation', 'Grenzen verstehen'] },
-]
-
 export default function SchulungenPage() {
   const router = useRouter()
   const { customerId } = useAuth()
   const { customer, isLoading } = useCustomer(customerId || '')
   const [activeTab, setActiveTab] = useState<TabType>('anstehend')
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [showRequestForm, setShowRequestForm] = useState(false)
-  const [formSubmitted, setFormSubmitted] = useState(false)
   const [assignments, setAssignments] = useState<CustomerSchulungAssignment[]>([])
-  const [formData, setFormData] = useState({
-    themen: '',
-    nachricht: '',
-  })
 
   // Fetch customer's schulung assignments
   useEffect(() => {
@@ -211,20 +184,6 @@ export default function SchulungenPage() {
   const anstehendCount = totalCount - completedCount
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
 
-  const toggleCategory = (id: string) => {
-    setExpandedCategory(expandedCategory === id ? null : id)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormSubmitted(true)
-    setTimeout(() => {
-      setShowRequestForm(false)
-      setFormSubmitted(false)
-      setFormData({ themen: '', nachricht: '' })
-    }, 2000)
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -241,69 +200,33 @@ export default function SchulungenPage() {
       />
 
       <div className="p-6">
-        <div className="mx-auto max-w-5xl">
-          {/* Progress Section - only show if there are schulungen */}
-          {totalCount > 0 && (
-            <Card className="mb-6 overflow-hidden">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-4">
+        <div className="mx-auto max-w-6xl">
+          {/* Schulungskatalog CTA - ganz oben */}
+          <Link href="/schulungen/katalog">
+            <Card className="mb-6 overflow-hidden hover:shadow-md transition-all cursor-pointer group">
+              <div className="bg-gradient-to-r from-primary-50 to-primary-100 p-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
-                      <Target className="h-5 w-5 text-primary-600" />
+                    <div className="w-10 h-10 rounded-xl bg-primary-200 flex items-center justify-center">
+                      <Layers className="h-5 w-5 text-primary-700" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Team-Fortschritt</h3>
-                      <p className="text-xs text-gray-500">
-                        {completedCount} von {totalCount} Schulungen abgeschlossen
+                      <h3 className="font-medium text-gray-900 group-hover:text-primary-700 transition-colors">
+                        Schulungskatalog entdecken
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Alle Kurse, Serien und Themengebiete im Überblick
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {progressPercent === 100 ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700">
-                        <Trophy className="h-4 w-4" />
-                        <span className="text-sm font-medium">Alle geschafft!</span>
-                      </div>
-                    ) : progressPercent >= 50 ? (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700">
-                        <Flame className="h-4 w-4" />
-                        <span className="text-sm font-medium">Weiter so!</span>
-                      </div>
-                    ) : null}
-                    <span className="text-2xl font-bold text-primary-600">{progressPercent}%</span>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-
-                {/* Stats Row */}
-                <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-gray-900">{anstehendCount}</p>
-                    <p className="text-xs text-gray-500">Anstehend</p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200" />
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-green-600">{completedCount}</p>
-                    <p className="text-xs text-gray-500">Abgeschlossen</p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200" />
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-primary-600">
-                      {displaySchulungen.reduce((sum, s) => sum + (s.isCompleted ? s.points : 0), 0)}
-                    </p>
-                    <p className="text-xs text-gray-500">Punkte verdient</p>
+                  <div className="flex items-center gap-2 text-primary-600">
+                    <span className="text-sm font-medium hidden sm:block">Zum Katalog</span>
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
             </Card>
-          )}
+          </Link>
 
           {/* Hero Section - show if no schulungen yet */}
           {totalCount === 0 && (
@@ -327,57 +250,151 @@ export default function SchulungenPage() {
             </Card>
           )}
 
-          {/* Tabs for Schulungen */}
+          {/* Main Layout with Sidebar */}
           {totalCount > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-4 mb-4">
-                <h3 className="text-sm font-medium text-gray-900">Ihre Schulungen</h3>
-                <div className="flex bg-gray-100 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setActiveTab('anstehend')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      activeTab === 'anstehend'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    Anstehend
-                    {anstehendCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs">
-                        {anstehendCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('abgeschlossen')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      activeTab === 'abgeschlossen'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    Abgeschlossen
-                    {completedCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">
-                        {completedCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('alle')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      activeTab === 'alle'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    Alle
-                  </button>
+            <div className="flex gap-6">
+              {/* Left Sidebar - Progress */}
+              <div className="hidden lg:block w-56 flex-shrink-0">
+                <div className="sticky top-6 space-y-4">
+                  {/* Progress Card */}
+                  <Card className="overflow-hidden">
+                    <div className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="h-4 w-4 text-primary-600" />
+                        <h3 className="text-sm font-medium text-gray-900">Fortschritt</h3>
+                      </div>
+
+                      {/* Circular Progress */}
+                      <div className="flex justify-center mb-4">
+                        <div className="relative w-24 h-24">
+                          <svg className="w-full h-full -rotate-90">
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke="#e5e7eb"
+                              strokeWidth="8"
+                              fill="none"
+                            />
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="40"
+                              stroke="url(#progressGradient)"
+                              strokeWidth="8"
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeDasharray={`${progressPercent * 2.51} 251`}
+                            />
+                            <defs>
+                              <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#6366f1" />
+                                <stop offset="100%" stopColor="#8b5cf6" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-xl font-bold text-gray-900">{progressPercent}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Badge */}
+                      {progressPercent === 100 ? (
+                        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                          <Trophy className="h-3.5 w-3.5" />
+                          Alle geschafft!
+                        </div>
+                      ) : progressPercent >= 50 ? (
+                        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                          <Flame className="h-3.5 w-3.5" />
+                          Weiter so!
+                        </div>
+                      ) : null}
+                    </div>
+                  </Card>
+
+                  {/* Stats Card */}
+                  <Card>
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Anstehend</span>
+                        <span className="text-sm font-semibold text-gray-900">{anstehendCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Abgeschlossen</span>
+                        <span className="text-sm font-semibold text-green-600">{completedCount}</span>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
 
-              {/* Schulung Cards */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Right Content - Schulungen */}
+              <div className="flex-1 min-w-0">
+                {/* Mobile Progress Bar */}
+                <div className="lg:hidden mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">Fortschritt</span>
+                    <span className="font-medium text-gray-900">{completedCount}/{totalCount} ({progressPercent}%)</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-4 mb-4">
+                  <h3 className="text-sm font-medium text-gray-900">Ihre Schulungen</h3>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setActiveTab('anstehend')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        activeTab === 'anstehend'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Anstehend
+                      {anstehendCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 text-xs">
+                          {anstehendCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('abgeschlossen')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        activeTab === 'abgeschlossen'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Abgeschlossen
+                      {completedCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">
+                          {completedCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('alle')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        activeTab === 'alle'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Alle
+                    </button>
+                  </div>
+                </div>
+
+                {/* Schulung Cards */}
+                <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredSchulungen.map((schulung) => {
                   const FormatIcon = formatLabels[schulung.format]?.icon || Users
 
@@ -492,209 +509,35 @@ export default function SchulungenPage() {
                     </div>
                   )
                 })}
-              </div>
-
-              {filteredSchulungen.length === 0 && (
-                <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                  {activeTab === 'anstehend' ? (
-                    <>
-                      <Trophy className="h-10 w-10 text-green-500 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600 font-medium">Alle Schulungen abgeschlossen!</p>
-                      <p className="text-xs text-gray-400 mt-1">Großartige Arbeit, Ihr Team ist auf dem neuesten Stand.</p>
-                    </>
-                  ) : activeTab === 'abgeschlossen' ? (
-                    <>
-                      <GraduationCap className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">Noch keine Schulungen abgeschlossen</p>
-                      <p className="text-xs text-gray-400 mt-1">Starten Sie mit Ihrer ersten Schulung!</p>
-                    </>
-                  ) : (
-                    <>
-                      <GraduationCap className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">Keine Schulungen zugewiesen</p>
-                    </>
-                  )}
                 </div>
-              )}
+
+                {filteredSchulungen.length === 0 && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+                    {activeTab === 'anstehend' ? (
+                      <>
+                        <Trophy className="h-10 w-10 text-green-500 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600 font-medium">Alle Schulungen abgeschlossen!</p>
+                        <p className="text-xs text-gray-400 mt-1">Großartige Arbeit, Ihr Team ist auf dem neuesten Stand.</p>
+                      </>
+                    ) : activeTab === 'abgeschlossen' ? (
+                      <>
+                        <GraduationCap className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Noch keine Schulungen abgeschlossen</p>
+                        <p className="text-xs text-gray-400 mt-1">Starten Sie mit Ihrer ersten Schulung!</p>
+                      </>
+                    ) : (
+                      <>
+                        <GraduationCap className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Keine Schulungen zugewiesen</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
-
-          {/* Schulungskatalog */}
-          <Card className="mb-8">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-primary-600" />
-                  Schulungskatalog
-                </CardTitle>
-                <Button variant="outline" onClick={() => setShowRequestForm(true)}>
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Schulung anfragen
-                </Button>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                Entdecken Sie unsere Themenbereiche und fordern Sie individuelle Schulungen an.
-              </p>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-gray-100">
-                {schulungsKategorien.map((kategorie) => {
-                  const isExpanded = expandedCategory === kategorie.id
-                  const Icon = kategorie.icon
-
-                  return (
-                    <div key={kategorie.id}>
-                      <button
-                        onClick={() => toggleCategory(kategorie.id)}
-                        className="flex w-full items-center gap-4 px-6 py-4 text-left hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
-                          <Icon className="h-5 w-5 text-primary-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-primary-600">{kategorie.id}.</span>
-                            <span className="font-medium text-gray-900">{kategorie.title}</span>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            {kategorie.themen.length} Themen
-                          </p>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-gray-400" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        )}
-                      </button>
-
-                      {isExpanded && (
-                        <div className="bg-gray-50 px-6 py-4">
-                          <div className="ml-14 space-y-2">
-                            {kategorie.themen.map((thema, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-3 text-sm text-gray-700"
-                              >
-                                <div className="h-1.5 w-1.5 rounded-full bg-primary-400" />
-                                {thema}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="ml-14 mt-4">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setFormData({ ...formData, themen: kategorie.title })
-                                setShowRequestForm(true)
-                              }}
-                            >
-                              Schulung anfragen
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* CTA */}
-          <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white p-8 text-center">
-            <Building2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 font-semibold text-gray-900">
-              Individuelle Anforderungen?
-            </h3>
-            <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-              Wir entwickeln maßgeschneiderte Schulungsprogramme – abgestimmt auf Ihre Branche und Ziele.
-            </p>
-            <Button className="mt-4" onClick={() => setShowRequestForm(true)}>
-              Anfrage stellen
-            </Button>
-          </div>
         </div>
       </div>
-
-      {/* Request Form Modal */}
-      {showRequestForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
-            {formSubmitted ? (
-              <div className="p-8 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                  <CheckCircle2 className="h-8 w-8 text-green-600" />
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  Anfrage gesendet!
-                </h3>
-                <p className="mt-2 text-gray-500">
-                  Wir melden uns innerhalb von 24 Stunden bei Ihnen.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Schulung anfragen</h3>
-                    <p className="text-sm text-gray-500">Wir erstellen ein individuelles Angebot</p>
-                  </div>
-                  <button
-                    onClick={() => setShowRequestForm(false)}
-                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gewünschte Themen
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.themen}
-                      onChange={(e) => setFormData({ ...formData, themen: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="z.B. Prompting, KI im Marketing"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Weitere Informationen
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={formData.nachricht}
-                      onChange={(e) => setFormData({ ...formData, nachricht: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      placeholder="Format (Online/Präsenz), Teilnehmer, Vorkenntnisse..."
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setShowRequestForm(false)}
-                    >
-                      Abbrechen
-                    </Button>
-                    <Button type="submit" className="flex-1">
-                      <Send className="mr-2 h-4 w-4" />
-                      Absenden
-                    </Button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
