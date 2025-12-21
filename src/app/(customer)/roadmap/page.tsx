@@ -352,7 +352,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                     </span>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {items.map((item: RoadmapItem) => {
                       const isInTest = item.status === 'im_test'
                       const isSchulung = item.type === 'schulung'
@@ -360,7 +360,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                       const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                       return (
-                        <Link key={item.id} href={linkHref}>
+                        <Link key={item.id} href={linkHref} className="block">
                           <Card className={`cursor-pointer transition-all hover:shadow-md ${
                             isSchulung
                               ? 'border-l-4 border-l-yellow-400 hover:border-primary-300'
@@ -631,7 +631,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
             <div className="relative">
               <div className="absolute left-4 top-0 h-full w-0.5 bg-gray-200" />
 
-              <div className="space-y-6">
+              <div>
                 {roadmapItems
                   .filter((item: RoadmapItem) => item.targetDate || item.scheduledDate)
                   .sort((a: RoadmapItem, b: RoadmapItem) => {
@@ -648,7 +648,7 @@ ${item.acceptanceCriteria?.map((c: any, i: number) => `  ${i + 1}. ${c.descripti
                     const FormatIcon = item.format ? formatLabels[item.format]?.icon || GraduationCap : GraduationCap
 
                     return (
-                      <Link key={item.id} href={linkHref}>
+                      <Link key={item.id} href={linkHref} className="block mb-3">
                         <div className="relative flex gap-4 pl-10 cursor-pointer group">
                           <div className={`absolute left-2.5 rounded-full p-1 ${isSchulung ? 'bg-yellow-100' : config.color}`}>
                             {isSchulung ? (
