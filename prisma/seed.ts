@@ -12,6 +12,7 @@ async function main() {
   await prisma.decision.deleteMany()
   await prisma.workshop.deleteMany()
   await prisma.customerRoadmapItem.deleteMany()
+  await prisma.certificate.deleteMany()
   await prisma.customerSchulungAssignment.deleteMany()
   await prisma.schulungSerieItem.deleteMany()
   await prisma.schulungSerie.deleteMany()
@@ -484,6 +485,124 @@ async function main() {
     }),
   ])
   console.log('Created schulung serien')
+
+  // ========================================
+  // KI-KOMPETENZ-WORKSHOP - Premium Serie
+  // ========================================
+
+  // Create the 4 KI-Kompetenz-Workshop Schulungen
+  const kiKompetenzSchulungen = await Promise.all([
+    prisma.schulung.create({
+      data: {
+        id: 'ki-kompetenz-1',
+        title: 'KI-Grundlagen & Funktionsverständnis',
+        description: 'Verständnis von KI: Was ist KI, wie funktioniert sie, und wo liegen ihre Grenzen? Lernen Sie die Grundlagen generativer KI und Large Language Models kennen.',
+        duration: '2-3 Stunden',
+        points: 6,
+        category: 'grundlagen',
+        format: 'hybrid',
+        videoUrl: 'https://player.vimeo.com/video/ki-grundlagen',
+        videoThumbnail: '/images/schulungen/ki-grundlagen.jpg',
+      },
+    }),
+    prisma.schulung.create({
+      data: {
+        id: 'ki-kompetenz-2',
+        title: 'Recht, Compliance & KI-Verantwortung',
+        description: 'EU-AI-Act, DSGVO und Ihre Pflichten nach Art. 4 KI-VO. Verstehen Sie die rechtlichen Rahmenbedingungen für den Einsatz von KI im Unternehmen.',
+        duration: '2-3 Stunden',
+        points: 6,
+        category: 'fortgeschritten',
+        format: 'hybrid',
+        videoUrl: 'https://player.vimeo.com/video/ki-recht',
+        videoThumbnail: '/images/schulungen/ki-recht.jpg',
+      },
+    }),
+    prisma.schulung.create({
+      data: {
+        id: 'ki-kompetenz-3',
+        title: 'Ethik, Sicherheit & verantwortungsvolle Nutzung',
+        description: 'Bias, Fairness, Transparenz und Sicherheit: Lernen Sie, KI verantwortungsvoll und ethisch korrekt einzusetzen.',
+        duration: '2 Stunden',
+        points: 4,
+        category: 'fortgeschritten',
+        format: 'hybrid',
+        videoUrl: 'https://player.vimeo.com/video/ki-ethik',
+        videoThumbnail: '/images/schulungen/ki-ethik.jpg',
+      },
+    }),
+    prisma.schulung.create({
+      data: {
+        id: 'ki-kompetenz-4',
+        title: 'Praxis & Toolarbeit (Hands-On)',
+        description: 'Prompting, KI-Anwendungen im Arbeitsalltag: Praktische Übungen mit echten KI-Tools für Ihren Berufsalltag.',
+        duration: '2-3 Stunden',
+        points: 6,
+        category: 'spezialisiert',
+        format: 'hybrid',
+        videoUrl: 'https://player.vimeo.com/video/ki-praxis',
+        videoThumbnail: '/images/schulungen/ki-praxis.jpg',
+      },
+    }),
+  ])
+  console.log(`Created ${kiKompetenzSchulungen.length} KI-Kompetenz-Workshop schulungen`)
+
+  // Create the Premium KI-Kompetenz-Workshop Serie
+  const kiKompetenzSerie = await prisma.schulungSerie.create({
+    data: {
+      id: 'ki-kompetenz-workshop',
+      title: 'KI-Kompetenz-Workshop',
+      description: 'Umfassende Schulungsreihe für KI-Kompetenz im Unternehmen. Nach Abschluss erhalten alle Teilnehmer ein Zertifikat gemäß EU-KI-Verordnung.',
+      totalPoints: 22,
+      isFeatured: true,
+      featuredOrder: 1,
+      heroImage: '/images/schulungen/ki-kompetenz-hero.jpg',
+      heroTagline: 'Mit Zertifikat gemäß EU-KI-Verordnung',
+      benefits: [
+        'Praxisnahes Wissen für den Arbeitsalltag',
+        'EU-KI-VO konform',
+        '8-12 Stunden Gesamtdauer',
+        'Individuelles Zertifikat pro Teilnehmer',
+        'Hybrid-Format: Live + Self-Learning',
+        'Kompetenznachweis für Ihr Unternehmen',
+      ],
+      targetAudience: 'Alle Mitarbeiter, die mit KI arbeiten • Führungskräfte & Entscheider • Compliance & Datenschutz-Verantwortliche',
+      certificateTitle: 'KI-Kompetenz gemäß EU-KI-Verordnung / AI Act',
+    },
+  })
+
+  // Link schulungen to the KI-Kompetenz-Workshop serie
+  await Promise.all([
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: kiKompetenzSerie.id,
+        schulungId: 'ki-kompetenz-1',
+        order: 1,
+      },
+    }),
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: kiKompetenzSerie.id,
+        schulungId: 'ki-kompetenz-2',
+        order: 2,
+      },
+    }),
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: kiKompetenzSerie.id,
+        schulungId: 'ki-kompetenz-3',
+        order: 3,
+      },
+    }),
+    prisma.schulungSerieItem.create({
+      data: {
+        serieId: kiKompetenzSerie.id,
+        schulungId: 'ki-kompetenz-4',
+        order: 4,
+      },
+    }),
+  ])
+  console.log('Created KI-Kompetenz-Workshop premium serie')
 
   // Create Workshops
   await Promise.all([

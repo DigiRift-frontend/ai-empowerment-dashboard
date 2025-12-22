@@ -22,6 +22,7 @@ import {
   Calendar,
   Coins,
   LogOut,
+  Award,
 } from 'lucide-react'
 
 const navigation = [
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Roadmap', href: '/roadmap', icon: Map },
   { name: 'Module', href: '/modules', icon: Cpu },
   { name: 'Schulungen', href: '/schulungen', icon: GraduationCap },
+  { name: 'Zertifikate', href: '/zertifikate', icon: Award },
   { name: 'Team', href: '/team', icon: Users },
 ]
 

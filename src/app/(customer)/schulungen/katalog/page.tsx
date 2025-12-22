@@ -217,58 +217,108 @@ export default function SchulungskatalogPage() {
           </div>
 
           {/* Serien Section */}
-          {(activeFilter === 'alle' || activeFilter === 'serien') && serien.length > 0 && (
+          {/* Featured/Premium Series */}
+          {(activeFilter === 'alle' || activeFilter === 'serien') && serien.filter(s => s.isFeatured).length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
+                <Award className="h-4 w-4 text-amber-600" />
+                Premium Schulungsserien
+              </h3>
+              <div className="grid gap-4">
+                {serien.filter(s => s.isFeatured).map((serie) => (
+                  <Link key={serie.id} href={`/schulungen/serien/${serie.id}`}>
+                    <Card className="overflow-hidden hover:shadow-lg transition-all cursor-pointer group border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-white">
+                      <div className="p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                              <Award className="h-6 w-6 text-amber-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-gray-900">{serie.title}</h4>
+                                <Badge className="bg-amber-100 text-amber-700 text-xs">
+                                  Premium
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500">
+                                {serie.heroTagline || `${serie.schulungItems?.length || 0} Module • ${serie.totalPoints} Punkte`}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
+                        </div>
+                        <p className="text-sm text-gray-600 mb-4">{serie.description}</p>
+                        {serie.benefits && serie.benefits.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {serie.benefits.slice(0, 4).map((benefit, index) => (
+                              <span key={index} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-600">
+                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                {benefit}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Regular Series */}
+          {(activeFilter === 'alle' || activeFilter === 'serien') && serien.filter(s => !s.isFeatured).length > 0 && (
             <div className="mb-8">
               <h3 className="text-sm font-medium text-gray-900 mb-4 flex items-center gap-2">
                 <Layers className="h-4 w-4 text-primary-600" />
                 Kursserien
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                {serien.map((serie) => (
-                  <Card
-                    key={serie.id}
-                    className="overflow-hidden hover:shadow-md transition-all cursor-pointer group"
-                  >
-                    <div className="bg-gradient-to-r from-primary-50 to-primary-100 px-4 py-3 border-b border-primary-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-primary-200 flex items-center justify-center">
-                            <Layers className="h-4 w-4 text-primary-700" />
+                {serien.filter(s => !s.isFeatured).map((serie) => (
+                  <Link key={serie.id} href={`/schulungen/serien/${serie.id}`}>
+                    <Card className="overflow-hidden hover:shadow-md transition-all cursor-pointer group h-full">
+                      <div className="bg-gradient-to-r from-primary-50 to-primary-100 px-4 py-3 border-b border-primary-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-primary-200 flex items-center justify-center">
+                              <Layers className="h-4 w-4 text-primary-700" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 text-sm">{serie.title}</h4>
+                              <p className="text-xs text-gray-500">
+                                {serie.schulungItems?.length || 0} Kurse
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 text-sm">{serie.title}</h4>
-                            <p className="text-xs text-gray-500">
-                              {serie.schulungItems?.length || 0} Kurse
-                            </p>
-                          </div>
+                          <Badge className="bg-primary-100 text-primary-700 text-xs">
+                            {serie.totalPoints} Punkte
+                          </Badge>
                         </div>
-                        <Badge className="bg-primary-100 text-primary-700 text-xs">
-                          {serie.totalPoints} Punkte
-                        </Badge>
                       </div>
-                    </div>
-                    <CardContent className="p-4">
-                      <p className="text-sm text-gray-600 mb-3">{serie.description}</p>
-                      <div className="space-y-1.5">
-                        {serie.schulungItems?.slice(0, 3).map((item: any, index: number) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center gap-2 text-xs text-gray-500"
-                          >
-                            <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium">
-                              {index + 1}
-                            </span>
-                            <span className="truncate">{item.schulung?.title}</span>
-                          </div>
-                        ))}
-                        {(serie.schulungItems?.length || 0) > 3 && (
-                          <p className="text-xs text-gray-400 ml-7">
-                            + {(serie.schulungItems?.length || 0) - 3} weitere Kurse
-                          </p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-gray-600 mb-3">{serie.description}</p>
+                        <div className="space-y-1.5">
+                          {serie.schulungItems?.slice(0, 3).map((item: any, index: number) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-2 text-xs text-gray-500"
+                            >
+                              <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium">
+                                {index + 1}
+                              </span>
+                              <span className="truncate">{item.schulung?.title}</span>
+                            </div>
+                          ))}
+                          {(serie.schulungItems?.length || 0) > 3 && (
+                            <p className="text-xs text-gray-400 ml-7">
+                              + {(serie.schulungItems?.length || 0) - 3} weitere Kurse
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))}
               </div>
             </div>

@@ -185,6 +185,7 @@ model Customer {
   schulungAssignments   CustomerSchulungAssignment[]
   customerRoadmapItems  CustomerRoadmapItem[]
   teamMembers           CustomerTeamMember[]
+  certificates          Certificate[]
 }
 
 // Kunden-Teammitglieder (Personen auf Kundenseite)
@@ -443,12 +444,24 @@ model SchulungSerie {
   description String
   totalPoints Int    @default(0)
 
+  // Premium/Featured
+  isFeatured    Boolean @default(false)
+  featuredOrder Int?
+
+  // Landingpage-Content
+  heroImage        String?   // Header-Bild URL
+  heroTagline      String?   // Untertitel/Tagline
+  benefits         String[]  // Vorteile-Liste
+  targetAudience   String?   // Zielgruppe Beschreibung
+  certificateTitle String?   // Zertifikats-Bezeichnung (z.B. "KI-Kompetenz gemäß EU-KI-Verordnung")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   schulungItems SchulungSerieItem[]
   assignments   CustomerSchulungAssignment[]
+  certificates  Certificate[]
 }
 
 // Schulung Serie Items (Verknüpfung)
@@ -483,6 +496,9 @@ model CustomerSchulungAssignment {
   participants     String[] // Liste der Teilnehmer-Namen
   participantCount Int?
 
+  // Benutzerdefinierte Punkte (überschreibt Standard-Punkte der Serie/Schulung)
+  customPoints Int?
+
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
@@ -493,6 +509,7 @@ model CustomerSchulungAssignment {
   serie   SchulungSerie? @relation(fields: [serieId], references: [id])
 
   pointTransactions PointTransaction[]
+  certificates      Certificate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -593,4 +610,32 @@ model AdminMessage {
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+// Zertifikate für Schulungsserien
+model Certificate {
+  id              String   @id @default(cuid())
+
+  // Teilnehmer-Daten
+  participantName String
+
+  // Zertifikats-Daten
+  hash            String   @unique  // SHA-256 Hash für Verifikation (12 Zeichen)
+  issuedAt        DateTime @default(now())
+  downloadCount   Int      @default(0)
+
+  // Verknüpfungen
+  serieId      String
+  serie        SchulungSerie @relation(fields: [serieId], references: [id], onDelete: Cascade)
+
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  assignmentId String
+  assignment   CustomerSchulungAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+
+  @@index([hash])
+  @@index([customerId, serieId])
 }

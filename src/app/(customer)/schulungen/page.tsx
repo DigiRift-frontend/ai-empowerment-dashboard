@@ -30,7 +30,8 @@ import {
   ArrowRight,
   Layers,
 } from 'lucide-react'
-import type { CustomerSchulungAssignment, Schulung, SchulungFormat } from '@/types'
+import type { CustomerSchulungAssignment, Schulung, SchulungFormat, Certificate } from '@/types'
+import { CertificateList } from '@/components/certificates/certificate-list'
 
 type TabType = 'anstehend' | 'abgeschlossen' | 'alle'
 
@@ -81,24 +82,33 @@ export default function SchulungenPage() {
   const { customer, isLoading } = useCustomer(customerId || '')
   const [activeTab, setActiveTab] = useState<TabType>('anstehend')
   const [assignments, setAssignments] = useState<CustomerSchulungAssignment[]>([])
+  const [certificates, setCertificates] = useState<Certificate[]>([])
 
-  // Fetch customer's schulung assignments
+  // Fetch customer's schulung assignments and certificates
   useEffect(() => {
-    const fetchAssignments = async () => {
+    const fetchData = async () => {
       if (!customerId) return
 
       try {
-        const res = await fetch(`/api/customers/${customerId}/schulungen`)
-        if (res.ok) {
-          const data = await res.json()
-          setAssignments(data)
+        // Fetch assignments
+        const assignmentsRes = await fetch(`/api/customers/${customerId}/schulungen`)
+        if (assignmentsRes.ok) {
+          const assignmentsData = await assignmentsRes.json()
+          setAssignments(assignmentsData)
+        }
+
+        // Fetch certificates
+        const certificatesRes = await fetch(`/api/customers/${customerId}/certificates`)
+        if (certificatesRes.ok) {
+          const certificatesData = await certificatesRes.json()
+          setCertificates(certificatesData)
         }
       } catch (error) {
-        console.error('Error fetching assignments:', error)
+        console.error('Error fetching data:', error)
       }
     }
 
-    fetchAssignments()
+    fetchData()
   }, [customerId])
 
   // Normalize assignments into flat list of schulungen (including series items)
@@ -327,6 +337,27 @@ export default function SchulungenPage() {
                       </div>
                     </div>
                   </Card>
+
+                  {/* Certificates Card */}
+                  {certificates.length > 0 && (
+                    <Card>
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Award className="h-4 w-4 text-amber-600" />
+                          <h3 className="text-sm font-medium text-gray-900">Zertifikate</h3>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">
+                          {certificates.length} Zertifikat{certificates.length !== 1 ? 'e' : ''} verfügbar
+                        </p>
+                        <Link href="/zertifikate">
+                          <Button variant="outline" size="sm" className="w-full gap-2">
+                            <Award className="h-4 w-4" />
+                            Alle anzeigen
+                          </Button>
+                        </Link>
+                      </div>
+                    </Card>
+                  )}
                 </div>
               </div>
 

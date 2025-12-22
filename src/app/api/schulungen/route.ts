@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 // GET /api/schulungen - Alle Schulungen und Serien
 export async function GET() {
   try {
-    const [schulungen, serien] = await Promise.all([
+    const [schulungen, serienRaw] = await Promise.all([
       prisma.schulung.findMany({
         include: {
           trainer: {
@@ -40,6 +40,12 @@ export async function GET() {
         },
       }),
     ])
+
+    // Add schulungIds computed from schulungItems for backward compatibility
+    const serien = serienRaw.map(serie => ({
+      ...serie,
+      schulungIds: serie.schulungItems.map(item => item.schulungId),
+    }))
 
     return NextResponse.json({ schulungen, serien })
   } catch (error) {

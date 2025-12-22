@@ -172,6 +172,21 @@ export default function CustomerDetailPage() {
   const [isCreatingModule, setIsCreatingModule] = useState(false)
   const [isUploadingManual, setIsUploadingManual] = useState(false)
 
+  // Participants Modal State (für Zertifikate bei Serie-Abschluss)
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false)
+  const [completingAssignment, setCompletingAssignment] = useState<CustomerSchulungAssignment | null>(null)
+  const [participantNames, setParticipantNames] = useState('')
+  const [isCreatingCertificates, setIsCreatingCertificates] = useState(false)
+
+  // API Schulung Serien State (statt Mock-Daten)
+  const [apiSchulungSerien, setApiSchulungSerien] = useState<SchulungSerie[]>(schulungSerien)
+
+  // Serie Edit Modal State (für benutzerdefinierte Punkte)
+  const [showSerieEditModal, setShowSerieEditModal] = useState(false)
+  const [editingSerieAssignment, setEditingSerieAssignment] = useState<CustomerSchulungAssignment | null>(null)
+  const [serieCustomPoints, setSerieCustomPoints] = useState<string>('')
+  const [isSavingSeriePoints, setIsSavingSeriePoints] = useState(false)
+
   // New Module Form State
   const [newModuleData, setNewModuleData] = useState({
     name: '',
@@ -265,6 +280,24 @@ export default function CustomerDetailPage() {
       setSchulungAssignments(initialSchulungAssignments)
     }
   }, [customer, apiModules, initialSchulungAssignments])
+
+  // Fetch Schulung Serien from API
+  useEffect(() => {
+    async function fetchSchulungSerien() {
+      try {
+        const response = await fetch('/api/schulungen')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.serien) {
+            setApiSchulungSerien(data.serien)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching schulungen serien:', error)
+      }
+    }
+    fetchSchulungSerien()
+  }, [])
 
   if (isLoading) {
     return (
@@ -724,7 +757,7 @@ export default function CustomerDetailPage() {
 
     // If serie, add all schulungen to roadmap
     if (type === 'serie') {
-      const serie = schulungSerien.find(s => s.id === id)
+      const serie = apiSchulungSerien.find(s => s.id === id)
       if (serie) {
         const newRoadmapItems = serie.schulungIds.map((schulungId, index) => ({
           id: `cri-new-${Date.now()}-${index}`,
@@ -746,10 +779,50 @@ export default function CustomerDetailPage() {
     }
   }
 
+  // Open Serie Edit Modal für Punkte-Bearbeitung
+  const openSerieEditModal = (assignment: CustomerSchulungAssignment) => {
+    setEditingSerieAssignment(assignment)
+    const serie = apiSchulungSerien.find(s => s.id === assignment.serieId)
+    setSerieCustomPoints(assignment.customPoints?.toString() || serie?.totalPoints?.toString() || '')
+    setShowSerieEditModal(true)
+  }
+
+  // Handle Serie Points Update
+  const handleSeriePointsUpdate = async () => {
+    if (!editingSerieAssignment) return
+
+    setIsSavingSeriePoints(true)
+    try {
+      const customPoints = serieCustomPoints ? parseInt(serieCustomPoints, 10) : null
+      const res = await fetch(`/api/customers/${customerId}/schulungen/${editingSerieAssignment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customPoints }),
+      })
+
+      if (res.ok) {
+        const updated = await res.json()
+        setSchulungAssignments(prev =>
+          prev.map(a => a.id === editingSerieAssignment.id ? updated : a)
+        )
+        setShowSerieEditModal(false)
+        setEditingSerieAssignment(null)
+        setSerieCustomPoints('')
+      } else {
+        alert('Fehler beim Speichern der Punkte')
+      }
+    } catch (error) {
+      console.error('Error updating serie points:', error)
+      alert('Fehler beim Speichern der Punkte')
+    } finally {
+      setIsSavingSeriePoints(false)
+    }
+  }
+
   // Get serie progress
   const getSerieProgress = (assignment: CustomerSchulungAssignment) => {
     if (!assignment.serieId) return { completed: 0, total: 0 }
-    const serie = schulungSerien.find(s => s.id === assignment.serieId)
+    const serie = apiSchulungSerien.find(s => s.id === assignment.serieId)
     if (!serie) return { completed: 0, total: 0 }
     // Filter out excluded schulungen from total
     const activeSchulungIds = serie.schulungIds.filter(id => !assignment.excludedSchulungIds?.includes(id))
@@ -1564,7 +1637,7 @@ export default function CustomerDetailPage() {
                         {schulungAssignments
                           .filter(a => a.serieId)
                           .map((assignment) => {
-                            const serie = schulungSerien.find(s => s.id === assignment.serieId)
+                            const serie = apiSchulungSerien.find(s => s.id === assignment.serieId)
                             if (!serie) return null
                             const progress = getSerieProgress(assignment)
                             const progressPercent = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0
@@ -1575,6 +1648,15 @@ export default function CustomerDetailPage() {
                                   <div>
                                     <h5 className="font-medium text-gray-900">{serie.title}</h5>
                                     <p className="text-sm text-gray-500">{serie.description}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-xs text-gray-500">
+                                        {assignment.customPoints ? (
+                                          <span className="text-purple-600 font-medium">{assignment.customPoints} Punkte (angepasst)</span>
+                                        ) : (
+                                          <span>{serie.totalPoints || 0} Punkte</span>
+                                        )}
+                                      </span>
+                                    </div>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -1590,6 +1672,17 @@ export default function CustomerDetailPage() {
                                        assignment.status === 'durchgefuehrt' ? 'Durchgeführt' :
                                        assignment.status === 'in_vorbereitung' ? 'In Vorbereitung' : 'Geplant'}
                                     </span>
+                                    {/* Edit points button */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        openSerieEditModal(assignment)
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                                      title="Punkte bearbeiten"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
                                     {/* Delete series button */}
                                     <button
                                       onClick={async () => {
@@ -1670,9 +1763,8 @@ export default function CustomerDetailPage() {
                                               onClick={async () => {
                                                 const newCompletedIds = [...(assignment.completedSchulungIds || []), schulungId]
                                                 const activeSchulungen = serie.schulungIds.filter(id => !assignment.excludedSchulungIds?.includes(id))
-                                                const newStatus = newCompletedIds.length >= activeSchulungen.length
-                                                  ? 'abgeschlossen'
-                                                  : 'durchgefuehrt'
+                                                const isSeriesComplete = newCompletedIds.length >= activeSchulungen.length
+                                                const newStatus = isSeriesComplete ? 'abgeschlossen' : 'durchgefuehrt'
 
                                                 // Update local state
                                                 setSchulungAssignments(prev =>
@@ -1695,6 +1787,17 @@ export default function CustomerDetailPage() {
                                                     status: newStatus,
                                                   }),
                                                 })
+
+                                                // If series is now complete, show participants modal for certificates
+                                                if (isSeriesComplete && assignment.serieId) {
+                                                  setCompletingAssignment({
+                                                    ...assignment,
+                                                    completedSchulungIds: newCompletedIds,
+                                                    status: newStatus,
+                                                  })
+                                                  setParticipantNames('')
+                                                  setShowParticipantsModal(true)
+                                                }
                                               }}
                                               className="px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded transition-colors"
                                             >
@@ -4153,14 +4256,14 @@ export default function CustomerDetailPage() {
                 </Link>
               </div>
               {/* Series Section */}
-              {schulungSerien.length > 0 && (
+              {apiSchulungSerien.length > 0 && (
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-3">
                     <Layers className="h-5 w-5 text-purple-500" />
                     Schulungsserien
                   </h3>
                   <div className="space-y-2">
-                    {schulungSerien.map((serie) => {
+                    {apiSchulungSerien.map((serie) => {
                       const isAlreadyAssigned = schulungAssignments.some(a => a.serieId === serie.id)
                       return (
                         <div
@@ -4424,6 +4527,193 @@ export default function CustomerDetailPage() {
               >
                 {isSavingPackage && <Loader2 className="h-4 w-4 animate-spin" />}
                 Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Serie Edit Modal - für Punkte-Bearbeitung */}
+      {showSerieEditModal && editingSerieAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-purple-600" />
+                Punkte bearbeiten
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {editingSerieAssignment.serie?.title || 'Serie'}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="text-sm text-purple-700 space-y-1">
+                  <p>{editingSerieAssignment.serie?.schulungItems?.length || 0} Schulungen enthalten</p>
+                  <p>Standard-Punkte: {apiSchulungSerien.find(s => s.id === editingSerieAssignment.serieId)?.totalPoints || 0}</p>
+                  {editingSerieAssignment.customPoints && (
+                    <p className="font-medium">Aktuelle Punkte: {editingSerieAssignment.customPoints} (angepasst)</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Punkteanzahl für diese Serie
+                </label>
+                <input
+                  type="number"
+                  value={serieCustomPoints}
+                  onChange={(e) => setSerieCustomPoints(e.target.value)}
+                  placeholder="Punkte eingeben"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leer lassen, um auf Standard-Punkte zurückzusetzen.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  setShowSerieEditModal(false)
+                  setEditingSerieAssignment(null)
+                  setSerieCustomPoints('')
+                }}
+                disabled={isSavingSeriePoints}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSeriePointsUpdate}
+                disabled={isSavingSeriePoints}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSavingSeriePoints ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Speichern...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Speichern
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participants Modal - für Zertifikate bei Serie-Abschluss */}
+      {showParticipantsModal && completingAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-primary-600" />
+                Teilnehmer für Zertifikate
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Serie abgeschlossen: <span className="font-medium">{completingAssignment.serie?.title}</span>
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Teilnehmernamen eingeben
+                </label>
+                <textarea
+                  value={participantNames}
+                  onChange={(e) => setParticipantNames(e.target.value)}
+                  placeholder="Max Mustermann&#10;Erika Musterfrau&#10;..."
+                  rows={6}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ein Name pro Zeile. Für jeden Teilnehmer wird ein Zertifikat erstellt.
+                </p>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-800">
+                  <strong>Hinweis:</strong> Die Zertifikate können nach der Erstellung vom Kunden heruntergeladen werden.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => {
+                  setShowParticipantsModal(false)
+                  setCompletingAssignment(null)
+                  setParticipantNames('')
+                }}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Überspringen
+              </button>
+              <button
+                onClick={async () => {
+                  if (!participantNames.trim()) {
+                    setShowParticipantsModal(false)
+                    setCompletingAssignment(null)
+                    return
+                  }
+
+                  setIsCreatingCertificates(true)
+                  try {
+                    const names = participantNames
+                      .split('\n')
+                      .map(name => name.trim())
+                      .filter(name => name.length > 0)
+
+                    if (names.length === 0) {
+                      setShowParticipantsModal(false)
+                      setCompletingAssignment(null)
+                      return
+                    }
+
+                    // Create certificates via API
+                    const response = await fetch('/api/certificates', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        serieId: completingAssignment.serieId,
+                        customerId: customerId,
+                        assignmentId: completingAssignment.id,
+                        participantNames: names,
+                      }),
+                    })
+
+                    if (!response.ok) {
+                      throw new Error('Failed to create certificates')
+                    }
+
+                    const certificates = await response.json()
+                    console.log(`Created ${certificates.length} certificates`)
+
+                    // Close modal
+                    setShowParticipantsModal(false)
+                    setCompletingAssignment(null)
+                    setParticipantNames('')
+                  } catch (error) {
+                    console.error('Error creating certificates:', error)
+                    alert('Fehler beim Erstellen der Zertifikate')
+                  } finally {
+                    setIsCreatingCertificates(false)
+                  }
+                }}
+                disabled={isCreatingCertificates || !participantNames.trim()}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isCreatingCertificates && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isCreatingCertificates ? 'Erstelle Zertifikate...' : `Zertifikate erstellen`}
               </button>
             </div>
           </div>

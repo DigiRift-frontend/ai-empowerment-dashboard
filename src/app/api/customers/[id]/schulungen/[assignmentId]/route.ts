@@ -96,6 +96,7 @@ export async function PATCH(
         ...(body.feedback !== undefined && { feedbackDate: new Date() }),
         ...(body.participants !== undefined && { participants: body.participants }),
         ...(body.participantCount !== undefined && { participantCount: body.participantCount }),
+        ...(body.customPoints !== undefined && { customPoints: body.customPoints }),
       },
       include: {
         schulung: {

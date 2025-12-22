@@ -121,6 +121,15 @@ export default function SchulungskatalogPage() {
     schulungIds: [] as string[],
   })
 
+  // Edit Serie state
+  const [editingSerie, setEditingSerie] = useState<SchulungSerie | null>(null)
+  const [editSerieData, setEditSerieData] = useState({
+    title: '',
+    description: '',
+    schulungIds: [] as string[],
+  })
+  const [isSavingSerie, setIsSavingSerie] = useState(false)
+
   const filteredSchulungen = schulungen.filter((schulung) => {
     const matchesSearch =
       schulung.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -619,7 +628,17 @@ export default function SchulungskatalogPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                      <button
+                        onClick={() => {
+                          setEditingSerie(serie)
+                          setEditSerieData({
+                            title: serie.title,
+                            description: serie.description,
+                            schulungIds: serie.schulungIds || [],
+                          })
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
@@ -1088,6 +1107,153 @@ export default function SchulungskatalogPage() {
                 className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Serie erstellen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Serie Modal */}
+      {editingSerie && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">Serie bearbeiten</h2>
+              <button
+                onClick={() => setEditingSerie(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titel</label>
+                <input
+                  type="text"
+                  value={editSerieData.title}
+                  onChange={(e) => setEditSerieData({ ...editSerieData, title: e.target.value })}
+                  placeholder="z.B. KI-Einführung Komplett"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                <textarea
+                  rows={2}
+                  value={editSerieData.description}
+                  onChange={(e) => setEditSerieData({ ...editSerieData, description: e.target.value })}
+                  placeholder="Worum geht es in der Serie?"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Schulungen auswählen ({editSerieData.schulungIds.length} ausgewählt)
+                </label>
+                <div className="space-y-2 max-h-60 overflow-auto border border-gray-200 rounded-lg p-2">
+                  {schulungen.map((schulung) => {
+                    const isSelected = editSerieData.schulungIds.includes(schulung.id)
+                    const index = editSerieData.schulungIds.indexOf(schulung.id)
+                    return (
+                      <div
+                        key={schulung.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setEditSerieData({
+                              ...editSerieData,
+                              schulungIds: editSerieData.schulungIds.filter(id => id !== schulung.id)
+                            })
+                          } else {
+                            setEditSerieData({
+                              ...editSerieData,
+                              schulungIds: [...editSerieData.schulungIds, schulung.id]
+                            })
+                          }
+                        }}
+                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-primary-50 border border-primary-200'
+                            : 'bg-gray-50 border border-transparent hover:bg-gray-100'
+                        }`}
+                      >
+                        {isSelected && (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-600 text-xs font-medium text-white">
+                            {index + 1}
+                          </span>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 text-sm">{schulung.title}</p>
+                          <p className="text-xs text-gray-500">{schulung.points} Punkte, {schulung.duration}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${categoryConfig[schulung.category].color}`}>
+                          {categoryConfig[schulung.category].label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {editSerieData.schulungIds.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    Gesamt: {editSerieData.schulungIds.reduce((sum, id) => {
+                      const schulung = schulungen.find(s => s.id === id)
+                      return sum + (schulung?.points || 0)
+                    }, 0)} Punkte
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setEditingSerie(null)}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  if (!editingSerie) return
+                  setIsSavingSerie(true)
+                  try {
+                    const totalPoints = editSerieData.schulungIds.reduce((sum, id) => {
+                      const schulung = schulungen.find(s => s.id === id)
+                      return sum + (schulung?.points || 0)
+                    }, 0)
+
+                    const res = await fetch(`/api/schulungen/serien/${editingSerie.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        title: editSerieData.title,
+                        description: editSerieData.description,
+                        schulungIds: editSerieData.schulungIds,
+                        totalPoints,
+                      }),
+                    })
+
+                    if (res.ok) {
+                      const updatedSerie = await res.json()
+                      setSerien(serien.map(s => s.id === editingSerie.id ? {
+                        ...updatedSerie,
+                        schulungIds: editSerieData.schulungIds,
+                      } : s))
+                      setEditingSerie(null)
+                    }
+                  } catch (error) {
+                    console.error('Error updating serie:', error)
+                  } finally {
+                    setIsSavingSerie(false)
+                  }
+                }}
+                disabled={!editSerieData.title.trim() || editSerieData.schulungIds.length < 2 || isSavingSerie}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSavingSerie && <Loader2 className="h-4 w-4 animate-spin" />}
+                Speichern
               </button>
             </div>
           </div>

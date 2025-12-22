@@ -249,8 +249,36 @@ export interface SchulungSerie {
   schulungIds: string[] // IDs der enthaltenen Schulungen in Reihenfolge
   schulungItems?: SchulungSerieItem[] // Aufgelöste Schulungen mit Reihenfolge
   totalPoints: number // Summe aller Schulungspunkte
+
+  // Premium/Featured
+  isFeatured?: boolean
+  featuredOrder?: number
+
+  // Landingpage-Content
+  heroImage?: string
+  heroTagline?: string
+  benefits?: string[]
+  targetAudience?: string
+  certificateTitle?: string // z.B. "KI-Kompetenz gemäß EU-KI-Verordnung"
+
   createdAt: string
   updatedAt: string
+}
+
+// Zertifikat für Schulungsserien
+export interface Certificate {
+  id: string
+  participantName: string
+  hash: string // 12-Zeichen Hash für Verifikation
+  issuedAt: string
+  downloadCount: number
+
+  // Verknüpfungen
+  serieId: string
+  serie?: SchulungSerie
+  customerId: string
+  customer?: Customer
+  assignmentId: string
 }
 
 // Schulungs-Zuweisungsstatus
@@ -277,9 +305,13 @@ export interface CustomerSchulungAssignment {
   participants?: string[] // Liste der Teilnehmer-Namen
   participantCount?: number
 
+  // Benutzerdefinierte Punkte
+  customPoints?: number // Überschreibt Standard-Punkte der Serie/Schulung
+
   // Resolved relations
   schulung?: Schulung
   serie?: SchulungSerie
+  certificates?: Certificate[]
 }
 
 // Modul Template (für den Katalog)
