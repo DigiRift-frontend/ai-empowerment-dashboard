@@ -502,7 +502,7 @@ async function main() {
         category: 'grundlagen',
         format: 'hybrid',
         videoUrl: 'https://player.vimeo.com/video/ki-grundlagen',
-        videoThumbnail: '/images/schulungen/ki-grundlagen.jpg',
+        videoThumbnail: null,
       },
     }),
     prisma.schulung.create({
@@ -515,7 +515,7 @@ async function main() {
         category: 'fortgeschritten',
         format: 'hybrid',
         videoUrl: 'https://player.vimeo.com/video/ki-recht',
-        videoThumbnail: '/images/schulungen/ki-recht.jpg',
+        videoThumbnail: null,
       },
     }),
     prisma.schulung.create({
@@ -528,7 +528,7 @@ async function main() {
         category: 'fortgeschritten',
         format: 'hybrid',
         videoUrl: 'https://player.vimeo.com/video/ki-ethik',
-        videoThumbnail: '/images/schulungen/ki-ethik.jpg',
+        videoThumbnail: null,
       },
     }),
     prisma.schulung.create({
@@ -541,7 +541,7 @@ async function main() {
         category: 'spezialisiert',
         format: 'hybrid',
         videoUrl: 'https://player.vimeo.com/video/ki-praxis',
-        videoThumbnail: '/images/schulungen/ki-praxis.jpg',
+        videoThumbnail: null,
       },
     }),
   ])

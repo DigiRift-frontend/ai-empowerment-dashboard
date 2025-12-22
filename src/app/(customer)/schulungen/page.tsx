@@ -481,12 +481,18 @@ export default function SchulungenPage() {
                           )}
                         </div>
 
-                        {/* Duration - smaller */}
-                        <div className="absolute bottom-2 right-2">
-                          <span className="px-2 py-0.5 rounded bg-black/60 text-white text-[10px] font-medium flex items-center gap-1">
-                            <Clock className="h-2.5 w-2.5" />
-                            {schulung.duration}
-                          </span>
+                        {/* Title Overlay with gradient background for readability */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
+                          <div className="flex items-end justify-between gap-2">
+                            <h4 className="text-white text-sm font-medium line-clamp-2 drop-shadow-md flex-1">
+                              {schulung.title}
+                            </h4>
+                            {/* Duration */}
+                            <span className="px-2 py-0.5 rounded bg-black/40 text-white text-[10px] font-medium flex items-center gap-1 flex-shrink-0">
+                              <Clock className="h-2.5 w-2.5" />
+                              {schulung.duration}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -499,9 +505,6 @@ export default function SchulungenPage() {
                           </p>
                         )}
 
-                        <h4 className="text-sm font-medium text-gray-900 mb-1 line-clamp-1 group-hover:text-primary-600 transition-colors">
-                          {schulung.title}
-                        </h4>
                         <p className="text-xs text-gray-500 line-clamp-2 mb-2">
                           {schulung.description}
                         </p>

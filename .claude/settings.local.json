@@ -30,7 +30,8 @@
       "Bash(grep:*)",
       "Bash(npx tsx:*)",
       "Bash(sips:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(find:*)"
     ]
   }
 }
